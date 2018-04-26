@@ -18,7 +18,6 @@ from __future__ import print_function
 from builtins import range
 import anydbm
 import bz2
-import cPickle
 import cStringIO
 import fcntl
 import functools
@@ -27,6 +26,7 @@ import math
 import operator
 import os
 import os.path
+import pickle
 import pwd
 import re
 import shelve
@@ -452,16 +452,16 @@ def newer_than(path1, path2): # path1 modification time more recent than path2 m
 def is_readable_file(filepath):
     return os.path.isfile(filepath) and os.access(filepath, os.R_OK)
 
-def try_dump(object, filepath): # cPickle.dump()
+def try_dump(object, filepath): # pickle.dump()
     try:
-        cPickle.dump(object, file(filepath, 'wb'), -1)
-    except (OSError, IOError, cPickle.PickleError) as err:
+        pickle.dump(object, file(filepath, 'wb'), -1)
+    except (OSError, IOError, pickle.PickleError) as err:
         sys.exit('ERROR: %s' % err)
 
-def try_load(filepath): # cPickle.load()
+def try_load(filepath): # pickle.load()
     try:
-        return cPickle.load(file(filepath, 'rb'))
-    except (OSError, IOError, cPickle.PickleError) as err:
+        return pickle.load(file(filepath, 'rb'))
+    except (OSError, IOError, pickle.PickleError) as err:
         sys.exit('ERROR: %s' % err)
 
 def get_blacklist(): # Get blacklist expression list
