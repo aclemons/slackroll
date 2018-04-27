@@ -19,9 +19,9 @@ from __future__ import unicode_literals
 from builtins import input
 from builtins import object
 from builtins import range
-import anydbm
 import bz2
 import cStringIO
+import dbm
 import fcntl
 import functools
 import glob
@@ -41,6 +41,12 @@ import termios
 import urllib
 import urlparse
 from functools import reduce
+
+if sys.version_info[0] < 3:
+  import whichdb
+  import gdbm
+else:
+  import dbm.gnu as gdbm
 
 slackroll_version = 49
 
@@ -457,7 +463,7 @@ def is_readable_file(filepath):
 
 def try_dump(object, filepath): # pickle.dump()
     try:
-        pickle.dump(object, open(filepath, 'wb'), -1)
+        pickle.dump(object, open(filepath, 'wb'), 2)
     except (OSError, IOError, pickle.PickleError) as err:
         sys.exit('ERROR: %s' % err)
 
@@ -2129,8 +2135,20 @@ if __name__ == "__main__":
                 or operation == 'touch' or needs_rebuild)
 
         try:
-            persistent_list = shelve.open(slackroll_persistentlist_filename, 'c')
-        except anydbm.error:
+            if sys.version_info[0] < 3:
+                # if the db is in dbhash format, convert to something python3 also supports
+                if whichdb.whichdb(slackroll_persistentlist_filename) == 'dbhash':
+                    old_list = dict()
+                    old_persistent_list = shelve.open(slackroll_persistentlist_filename, 'c')
+                    old_list.update(old_persistent_list)
+                    old_persistent_list.close()
+
+                    new_persistent_list = shelve.Shelf(gdbm.open(slackroll_persistentlist_filename, 'n'), protocol=2)
+                    new_persistent_list.update(old_list)
+                    new_persistent_list.sync()
+                    new_persistent_list.close()
+            persistent_list = shelve.Shelf(gdbm.open(slackroll_persistentlist_filename, 'c'), protocol=2)
+        except dbm.error:
             sys.exit('ERROR: unable to properly open %s' % slackroll_persistentlist_filename)
 
         if needs_analyze:
