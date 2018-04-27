@@ -38,15 +38,19 @@ import struct
 import subprocess
 import sys
 import termios
-import urllib
-import urlparse
 from functools import reduce
 
 if sys.version_info[0] < 3:
-  import whichdb
-  import gdbm
+    import whichdb
+    import gdbm
+    import urllib as urllibrequest
+    from urllib import ContentTooShortError
+    import urlparse
 else:
-  import dbm.gnu as gdbm
+    import dbm.gnu as gdbm
+    import urllib.request as urllibrequest
+    import urllib.parse as urlparse
+    from urllib.error import ContentTooShortError as ContentTooShortError
 
 slackroll_version = 49
 
@@ -289,7 +293,7 @@ class SlackwarePackage(object):
     def sig_url(self, mirror):
         return urlparse.urljoin(self.base_url(mirror), self.fullsigname)
 
-class SlackrollURLopener(urllib.FancyURLopener):
+class SlackrollURLopener(urllibrequest.FancyURLopener):
     def http_error_default(self, url, fp, errcode, errmsg, headers):
         raise IOError('%s: %s' % (errcode, errmsg))
 
@@ -806,11 +810,11 @@ def download_file(mirror, filepath, local_temp, local_final, displayed_name=None
         print_flush('Downloading %s ... ' % displayed_name)
         full_url = urlparse.urljoin(mirror, filepath)
         hook = None if slackroll_batch_mode else functools.partial(download_report_hook, displayed_name)
-        urllib.urlretrieve(full_url, local_temp, hook)
+        urllibrequest.urlretrieve(full_url, local_temp, hook)
         print()
         if not try_to_rename(local_temp, local_final, fatal=False):
             raise SlackrollError('rename error: %s => %s' % (local_temp, local_final))
-    except (OSError, IOError, socket.error, urllib.ContentTooShortError) as err:
+    except (OSError, IOError, socket.error, ContentTooShortError) as err:
         sys.stderr.write('\nERROR: %s\n' % err)
         raise SlackrollError(str(err))
 
@@ -970,14 +974,14 @@ def update_changelog(mirror, full=False): # Returns answer to "has it been updat
     changelog_url = urlparse.urljoin(mirror, slackroll_changelog_filename)
     lines = []
     try:
-        conn = urllib.urlopen(changelog_url)
+        conn = urllibrequest.urlopen(changelog_url)
         while True:
             new_line = conn.readline()
             if len(new_line) == 0 or new_line.strip() in limits:
                 break
             lines.append(new_line)
         conn.close()
-    except (OSError, IOError, socket.error, urllib.ContentTooShortError) as err:
+    except (OSError, IOError, socket.error, ContentTooShortError) as err:
         sys.exit('\nERROR: %s' % err)
 
     if len(lines) == 0:
@@ -1762,7 +1766,6 @@ def words_to_words_distance(words1, words2): # Distance between two lists of wor
     # We will consider this the sum of the minimum distances for each word
     # against the words of the other list, plus the difference in words.
     return (sum(word_to_word_list_distance(i, words2) for i in words1) + abs(len(words1) - len(words2)))
-
 
 if __name__ == "__main__":
     ### Main program ###
