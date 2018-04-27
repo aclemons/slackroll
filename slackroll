@@ -20,9 +20,10 @@ from __future__ import unicode_literals
 from builtins import input
 from builtins import object
 from builtins import range
+from builtins import str
 from functools import reduce
+from io import StringIO
 import bz2
-import cStringIO
 import dbm
 import fcntl
 import functools
@@ -739,7 +740,7 @@ class SlackrollOutputInterceptor(object): # Intercepts stdout and uses a pager i
         if not sys.stdout.isatty():
             self.__was_not_tty = True
             return
-        self.__buffer = cStringIO.StringIO()
+        self.__buffer = StringIO()
         self.__old_stdout = sys.stdout
         sys.stdout = self.__buffer
 
@@ -753,7 +754,7 @@ class SlackrollOutputInterceptor(object): # Intercepts stdout and uses a pager i
         numlines = output.count('\n')
         if needs_pager(numlines):
             proc = call_pager()
-            proc.stdin.write(output)
+            proc.stdin.write(str.encode(output))
             proc.stdin.close()
             proc.wait()
         else:
@@ -946,7 +947,7 @@ def get_remote_info(mirror, package): # Downloads info file and returns its cont
     remote_file = package.fullname[:-len(slackroll_info_suffix)] + slackroll_info_suffix
     local_file = os.path.join(slackroll_base_dir, os.path.basename(remote_file))
     download_or_exit(package.base_url(mirror), remote_file, slackroll_base_dir)
-    data = open(local_file, 'r').read()
+    data = str(open(local_file, 'r').read())
     try_to_remove(local_file)
     return data
 
@@ -955,7 +956,7 @@ def update_changelog(mirror, full=False): # Returns answer to "has it been updat
         temp_dir = get_temp_dir()
         download_or_exit(mirror, slackroll_changelog_filename, temp_dir)
         local_filename = os.path.join(temp_dir, slackroll_changelog_filename)
-        text = open(local_filename).read()
+        text = str(open(local_filename, errors='ignore').read())
         cl = ChangeLog()
         cl.add_entries(clentrylist_from_text(text))
         try_dump(cl, slackroll_local_changelog)
@@ -1887,7 +1888,7 @@ try:
         if not is_readable_file(helpfile):
             sys.exit('ERROR: no help found for "%s"' % helpname)
         interceptor = SlackrollOutputInterceptor()
-        print(open(helpfile, 'r').read())
+        print(str(open(helpfile, 'r').read()))
         interceptor.stop()
         sys.exit()
 
@@ -2466,7 +2467,7 @@ try:
         verify_local_names(args, local_list)
         interceptor = SlackrollOutputInterceptor()
         try:
-            print('\n'.join(open(x.fullname, 'r').read() for x in concat(local_list[pkg] for pkg in args)))
+            print('\n'.join(str(open(x.fullname, 'r').read()) for x in concat(local_list[pkg] for pkg in args)))
         except (IOError, OSError) as err:
             sys.exit('ERROR: %s' % err)
         interceptor.stop()
