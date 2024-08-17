@@ -11,7 +11,7 @@ export LANG=C
 
 # Initial variables.
 NAME=slackroll
-VERSION=v`grep '^slackroll_version' slackroll | cut -d' ' -f3`
+VERSION=v$(grep '^slackroll_version' slackroll | cut -d' ' -f3)
 ARCH=noarch
 BUILD=${BUILD:-1}
 OUT=${TMP:-/tmp}
