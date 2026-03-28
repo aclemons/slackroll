@@ -1,6 +1,8 @@
 *.pyc
 .coverage
+.venv
 __pycache__
 htmlcov
 pytest-coverage.txt
+pytest.xml
 slackrollc
