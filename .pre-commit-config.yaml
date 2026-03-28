@@ -4,7 +4,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -14,22 +14,22 @@ repos:
       - id: check-toml
       - id: check-added-large-files
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.1.0
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: b25652612a4a3c1da8caccfca9af661db56b2c07 # frozen: v3.8.2
     hooks:
       - id: prettier
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.1
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
     hooks:
       - id: actionlint-docker
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.1
+    rev: b831c3dc5d27d9da294ae4e915773b99aa24a7c5 # frozen: v0.15.10
     hooks:
-      - id: ruff # run ruff equivalent of isort on everything
+      - id: ruff-check # run ruff equivalent of isort on everything
         args: ["--select", "I", "--target-version", "py39", "--fix"]
-      - id: ruff
+      - id: ruff-check
         files: ^tests/ # only check tests right now.
         args:
           [
