@@ -45,7 +45,7 @@ def test_update_changelog_full_preserves_non_utf8_bytes(temp_dir):
     changelog_db = os.path.join(temp_dir, "changelog.db")
     payload = (
         b"Tue Feb 17 00:00:00 UTC 2026\n"
-        b"  Example non-UTF-8 TLD: \xb3\xb7\xd8\xd9\n"
+        b"  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
         b"+--------------------------+\n"
     )
 
@@ -86,7 +86,7 @@ def test_update_changelog_incremental_preserves_non_utf8_bytes(temp_dir):
     )
     new_lines = [
         b"Tue Feb 17 00:00:00 UTC 2026\n",
-        b"  Example non-UTF-8 TLD: \xb3\xb7\xd8\xd9\n",
+        b"  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n",
         b"+--------------------------+\n",
         b"Mon Feb 16 00:00:00 UTC 2026\n",
     ]

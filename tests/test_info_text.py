@@ -29,14 +29,22 @@ try:
 except ImportError:
     TYPE_CHECKING = False
 
+
 if TYPE_CHECKING:
-    from typing import Generator, List, Optional, Tuple
+    from typing import Generator, List, Optional, Tuple, TypeVar, cast
+
+    T = TypeVar("T")
+else:
+
+    def cast(_type, value):
+        # type: (object, T) -> T
+        return value
 
 
 if tests.PY2:
-    non_utf8_tld = "\xb3\xb7\xd8\xd9"
+    non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
-    non_utf8_tld = b"\xb3\xb7\xd8\xd9".decode("latin-1")
+    non_utf8_latin1 = b"\xb3\xb7\xd8\xd9".decode("latin-1")
 
 
 @pytest.fixture  # type: ignore
@@ -71,7 +79,7 @@ class FakePackage(object):
 def test_read_lossless_text_preserves_non_utf8_bytes(temp_dir):
     # type: (str) -> None
     filename = os.path.join(temp_dir, "example.txt")
-    payload = b"Example non-UTF-8 TLD: \xb3\xb7\xd8\xd9\n"
+    payload = b"Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
 
     handle = open(filename, "wb")
     try:
@@ -87,7 +95,7 @@ def test_read_lossless_text_preserves_non_utf8_bytes(temp_dir):
 def test_get_remote_info_preserves_non_utf8_bytes(temp_dir):
     # type: (str) -> None
     payload = b"PACKAGE NAME: example\nPACKAGE LOCATION: ./patches\nURL: https://example.\xb3\xb7\xd8\xd9/\n"
-    package = FakePackage("example-1.0-noarch-1.txz")
+    package = cast(SlackwarePackage, FakePackage("example-1.0-noarch-1.txz"))
 
     def fake_download_or_exit(_mirror, filename, destination):
         # type: (str, str, str) -> None
@@ -100,7 +108,7 @@ def test_get_remote_info_preserves_non_utf8_bytes(temp_dir):
 
     with patch("slackroll.slackroll_base_dir", temp_dir):
         with patch("slackroll.download_or_exit", fake_download_or_exit):
-            info_text = get_remote_info("https://example.invalid/", package)  # type: ignore[arg-type]
+            info_text = get_remote_info("https://example.invalid/", package)
 
     assert_text_preserves_bytes(info_text, b"\xb3\xb7\xd8\xd9")
 
@@ -108,13 +116,15 @@ def test_get_remote_info_preserves_non_utf8_bytes(temp_dir):
 def test_local_info_header_from_text_preserves_non_utf8_bytes():
     # type: () -> None
     text = ("PACKAGE NAME: example\nURL: https://example.%s/\n%s/usr/doc/example\n") % (
-        non_utf8_tld,
+        non_utf8_latin1,
         slackroll_local_pkg_filelist_marker,
     )
 
     header = local_info_header_from_text(text)
 
-    assert header == "PACKAGE NAME: example\nURL: https://example.%s/\n" % non_utf8_tld
+    assert (
+        header == "PACKAGE NAME: example\nURL: https://example.%s/\n" % non_utf8_latin1
+    )
     if not tests.PY2:
         assert b"\xb3\xb7\xd8\xd9" in header.encode("latin-1")
 
@@ -123,7 +133,7 @@ def test_texts_to_printed_bytes_preserves_non_utf8_bytes():
     # type: () -> None
     output = texts_to_printed_bytes(
         [
-            "URL: https://example.%s/" % non_utf8_tld,
+            "URL: https://example.%s/" % non_utf8_latin1,
             "Second line",
         ]
     )
@@ -134,7 +144,7 @@ def test_texts_to_printed_bytes_preserves_non_utf8_bytes():
 
 def test_texts_to_printed_bytes_single_text_matches_help_output():
     # type: () -> None
-    output = texts_to_printed_bytes(["Help topic: %s" % non_utf8_tld])
+    output = texts_to_printed_bytes(["Help topic: %s" % non_utf8_latin1])
 
     assert output.endswith(b"\n")
     assert b"\xb3\xb7\xd8\xd9" in output
@@ -142,9 +152,11 @@ def test_texts_to_printed_bytes_single_text_matches_help_output():
 
 def test_decode_local_filelist_path_decodes_escapes_losslessly():
     # type: () -> None
-    decoded = decode_local_filelist_path("usr\\040share/doc/example-%s" % non_utf8_tld)
+    decoded = decode_local_filelist_path(
+        "usr\\040share/doc/example-%s" % non_utf8_latin1
+    )
 
-    assert decoded == "usr share/doc/example-%s" % non_utf8_tld
+    assert decoded == "usr share/doc/example-%s" % non_utf8_latin1
     if not tests.PY2:
         assert b"\xb3\xb7\xd8\xd9" in decoded.encode("latin-1")
 
@@ -167,7 +179,7 @@ def test_extract_file_list_preserves_non_utf8_bytes_and_escapes(temp_dir):
 
     paths = extract_file_list(filename)
 
-    assert paths[0] == "/usr share/doc/example-%s" % non_utf8_tld
+    assert paths[0] == "/usr share/doc/example-%s" % non_utf8_latin1
     assert paths[1] == "/usr/bin/example"
     if not tests.PY2:
         assert b"\xb3\xb7\xd8\xd9" in paths[0].encode("latin-1")
@@ -191,7 +203,7 @@ def test_get_remote_pkgs_preserves_non_utf8_bytes(temp_dir):
 
     assert (
         packages[0].fullname
-        == "./patches/packages/example-%s-1.0-noarch-1.txz" % non_utf8_tld
+        == "./patches/packages/example-%s-1.0-noarch-1.txz" % non_utf8_latin1
     )
     assert packages[1].fullname == "./slackware64/ap/bash-5.2.037-x86_64-1.txz"
     if not tests.PY2:
@@ -234,9 +246,9 @@ def test_manifest_database_from_text_preserves_non_utf8_bytes():
 
     manifestdb = manifest_database_from_text(contents)
 
-    package_name = "example-%s-1.0-noarch-1.txz" % non_utf8_tld
+    package_name = "example-%s-1.0-noarch-1.txz" % non_utf8_latin1
     assert manifestdb["/usr/bin/example"] == [package_name]
-    assert manifestdb["/usr/doc/example-%s/README" % non_utf8_tld] == [package_name]
+    assert manifestdb["/usr/doc/example-%s/README" % non_utf8_latin1] == [package_name]
     if not tests.PY2:
         assert b"\xb3\xb7\xd8\xd9" in list(manifestdb.keys())[0].encode(
             "latin-1"
