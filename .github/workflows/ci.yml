@@ -49,7 +49,7 @@ jobs:
       # renovate: datasource=pypi depName=pre-commit
       PRE_COMMIT_VERSION: "4.3.0"
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.11.4"
+      UV_VERSION: "0.11.6"
       # renovate: datasource=python-version depName=python
       PRE_COMMIT_PYTHON_VERSION: "3.14.3"
     steps:
