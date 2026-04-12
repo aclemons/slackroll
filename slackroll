@@ -456,6 +456,18 @@ class ChangeLogEntry(object):
 
         return (self.timestamp == other.timestamp or self.text == other.text)
 
+    def __setstate__(self, state):
+        # type: (Dict[Union[str, bytes], Any]) -> None
+        # When loading Python 2 pickles on Python 3 with encoding='bytes',
+        # attribute names are bytes objects.  Decode them back to strings,
+        # then normalise text values via latin-1 so non-UTF-8 bytes survive.
+        normalised = {} # type: Dict[str, Any]
+        for k, v in state.items():
+            normalised[normalise_pickle_state_key(k)] = v
+        self.__dict__.update(normalised)
+        self._timestamp = normalise_changelog_text(self._timestamp)
+        self._text = normalise_changelog_text(self._text)
+
     def __str__(self):
         # type: () -> str
         return '%s\n%s' % (self.timestamp, self.text)
@@ -493,6 +505,17 @@ class ChangeLog(object):
         # type: (int) -> List[ChangeLogEntry]
         return self._batches.get(batchnum, [])
 
+    def __setstate__(self, state):
+        # type: (Dict[Union[str, bytes], Any]) -> None
+        # When loading Python 2 pickles on Python 3 with encoding='bytes',
+        # attribute names are bytes objects.  Decode them back to strings.
+        # The ChangeLogEntry instances inside _batches handle their own
+        # text normalisation via their own __setstate__.
+        normalised = {} # type: Dict[str, Any]
+        for k, v in state.items():
+            normalised[normalise_pickle_state_key(k)] = v
+        self.__dict__.update(normalised)
+
 def clentry_from_text(text):
     # type: (str) -> ChangeLogEntry
     lines = text.split('\n')
@@ -500,11 +523,78 @@ def clentry_from_text(text):
     timestamp = lines[0].strip()
     return ChangeLogEntry(timestamp, text)
 
+def normalise_changelog_text(text):
+    # type: (Union[str, bytes]) -> str
+    if PY2:
+        return text
+
+    # on python3, we convert bytes read from the changelog to latin-1 for
+    # lossless handling for processing (regex splitting etc). When writing it
+    # back to the console, we convert it back to raw bytes (see
+    # changelog_entries_to_bytes()) so that non-utf8 bytes are preserved in the
+    # output.
+    if isinstance(text, bytes):
+        return text.decode('latin-1')
+
+    return text
+
+def normalise_pickle_state_key(key):
+    # type: (Union[str, bytes]) -> str
+    if PY2:
+        return key
+
+    if isinstance(key, bytes):
+        return key.decode('ascii')
+
+    return key
+
 def clentrylist_from_text(text):
     # type: (str) -> List[ChangeLogEntry]
+    text = normalise_changelog_text(text)
     entries = text.split(slackroll_changelog_entry_separator)
     entries = [x for x in entries if len(x) > 0]
     return [clentry_from_text(x) for x in entries]
+
+def get_changelog():
+    # type: () -> ChangeLog
+    return try_load(slackroll_local_changelog, load_py2_strings_as_bytes=True) # type: ignore
+
+def changelog_entries_to_bytes(entries):
+    # type: (Sequence[ChangeLogEntry]) -> bytes
+    text = slackroll_changelog_entry_separator.join('%s' % entry for entry in entries)
+    if PY2:
+        return text
+    return text.encode('latin-1')
+
+def write_raw_output(output):
+    # type: (bytes) -> None
+    numlines = output.count(b'\n')
+    if needs_pager(numlines):
+        proc = call_pager()
+        assert proc.stdin is not None
+        proc.stdin.write(output)
+        proc.stdin.close()
+        proc.wait()
+        return
+
+    if PY2:
+        sys.stdout.write(output)
+        sys.stdout.flush()
+        return
+
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout.buffer.write(output)
+        sys.stdout.buffer.flush()
+        return
+
+    try:
+        os.write(sys.stdout.fileno(), output)
+    except (OSError, IOError, AttributeError):
+        # Some wrapped stdout objects expose only a text API. Fall back to a
+        # reversible latin-1 decode so changelog display still works even when
+        # exact raw-byte writes are not possible in the current environment.
+        sys.stdout.write(output.decode('latin-1'))
+        sys.stdout.flush()
 
 def print_flush(message):
     # type: (str) -> None
@@ -616,13 +706,16 @@ def try_dump(object, filepath): # pickle.dump()
         err = sys.exc_info()[1]
         sys.exit('ERROR: %s' % err)
 
-def try_load(filepath): # pickle.load()
-    # type: (str) -> Any
+def try_load(filepath, load_py2_strings_as_bytes=False): # pickle.load()
+    # type: (str, bool) -> Any
     try:
         handle = open(filepath, 'rb')
         try:
             if PY2:
                 return pickle.load(handle)
+
+            if load_py2_strings_as_bytes:
+                return pickle.load(handle, encoding='bytes')
 
             try:
                 return pickle.load(handle, encoding='utf-8')
@@ -1233,7 +1326,7 @@ def update_changelog(mirror, full=False): # Returns answer to "has it been updat
         temp_dir = get_temp_dir()
         download_or_exit(mirror, slackroll_changelog_filename, temp_dir)
         local_filename = os.path.join(temp_dir, slackroll_changelog_filename)
-        text = open(local_filename).read()
+        text = normalise_changelog_text(open(local_filename, 'rb').read())
         new_cl = ChangeLog()
         new_cl.add_entries(clentrylist_from_text(text))
         try_dump(new_cl, slackroll_local_changelog)
@@ -1243,7 +1336,7 @@ def update_changelog(mirror, full=False): # Returns answer to "has it been updat
     print_flush('Updating change log ... ')
 
     try: # Only read until last known entry
-        cl = try_load(slackroll_local_changelog) # type: ChangeLog
+        cl = get_changelog()
         limits = set(concat([[x.timestamp for x in cl.get_batch(y)] for y in range(cl.num_batches())]))
     except (OSError, IOError):
         err = sys.exc_info()[1]
@@ -1255,6 +1348,7 @@ def update_changelog(mirror, full=False): # Returns answer to "has it been updat
         conn = urlopen(changelog_url)
         while True:
             new_line = conn.readline()
+            new_line = normalise_changelog_text(new_line)
             if len(new_line) == 0 or new_line.strip() in limits:
                 break
             lines.append(new_line)
@@ -2357,15 +2451,13 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'changelog':
-            interceptor = SlackrollOutputInterceptor()
-            cl = try_load(slackroll_local_changelog)
-            print(slackroll_changelog_entry_separator.join('%s' % entry for entry in cl.last_batch()))
-            interceptor.stop()
+            cl = get_changelog()
+            write_raw_output(changelog_entries_to_bytes(cl.last_batch()))
             sys.exit()
 
         if operation == 'list-changelog':
             interceptor = SlackrollOutputInterceptor()
-            cl = try_load(slackroll_local_changelog)
+            cl = get_changelog()
             print('ChangeLog.txt entries:')
             for idb in range(cl.num_batches() - 1, -1, -1):
                 batch = cl.get_batch(idb)
@@ -2376,7 +2468,7 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'changelog-entries':
-            cl = try_load(slackroll_local_changelog)
+            cl = get_changelog()
             entries = []
             for code in args:
                 try:
@@ -2385,17 +2477,13 @@ if __name__ == "__main__":
                     entries.append(cl.get_batch(idb)[ide])
                 except (IndexError, ValueError):
                     sys.exit('ERROR: invalid entry: %s' % code)
-            interceptor = SlackrollOutputInterceptor()
-            print(slackroll_changelog_entry_separator.join('%s' % x for x in entries))
-            interceptor.stop()
+            write_raw_output(changelog_entries_to_bytes(entries))
             sys.exit()
 
         if operation == 'full-changelog':
-            cl = try_load(slackroll_local_changelog)
+            cl = get_changelog()
             entries = concat([[x for x in cl.get_batch(y)] for y in range(cl.num_batches() - 1, -1, -1)]) # type: ignore
-            interceptor = SlackrollOutputInterceptor()
-            print(slackroll_changelog_entry_separator.join('%s' % x for x in entries))
-            interceptor.stop()
+            write_raw_output(changelog_entries_to_bytes(entries))
             sys.exit()
 
         if operation in ['local-search', 'missing-search']:
