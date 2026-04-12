@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.22.0@sha256:4a43a54dd1fedceb30ba47e76cfcf2b47304f4161c0caeac2db1c61804ea3c91
 
-FROM aclemons/slackware:15.0@sha256:20ca7c42e54830c9e46332c8b652c0707a76ee52cbdf385745fbe2d3679eb5e6 AS base
+FROM aclemons/slackware:15.0@sha256:e7512065b6ad9c63d212bdbb9a0e85fdb587478c8b44d29e6a09cbedf1294c94 AS base
 
 # install python2
 RUN export TERSE=0 && \
