@@ -8,7 +8,9 @@ import pytest
 from slackroll import (
     add_blacklist_exprs,
     del_blacklist_exprs,
+    get_blacklist,
     get_blacklist_re,
+    normalise_blacklist_entry,
     print_blacklist,
     slackroll_blacklist_filename,
     try_dump,
@@ -29,6 +31,9 @@ except ImportError:
 
 if TYPE_CHECKING:
     from typing import List
+
+
+non_ascii_text = b"\xc3\xa4\xc3\xb6\xc3\xbc".decode("utf-8")
 
 
 @pytest.fixture  # type: ignore
@@ -166,7 +171,7 @@ def test_del_blacklist_exprs_invalid_index_exceeds_length(blacklist):
             exit_mock.assert_called_with("ERROR: invalid blacklist entry index: 4")
 
 
-def test_deserialise_py2_bl(blacklist):
+def test_get_blacklist_from_py2_pickle(blacklist):
     # type: (List[str]) -> None
     """Checks if we can deserialise a known good file."""
 
@@ -174,17 +179,57 @@ def test_deserialise_py2_bl(blacklist):
         os.path.dirname(__file__), "..", "data", "py2_blacklist.db"
     )
 
-    assert blacklist == try_load(data_file)
+    with patch("slackroll.slackroll_blacklist_filename", data_file):
+        assert blacklist == get_blacklist()
+
+
+def test_get_blacklist_normalises_utf8_bytes(blacklist):
+    # type: (List[str]) -> None
+    f = NamedTemporaryFile(delete=False)
+    f.close()
+    os.unlink(f.name)
+
+    try:
+        with patch("slackroll.slackroll_blacklist_filename", f.name):
+            try_dump(
+                [
+                    b"entry1",
+                    b"entry2",
+                    b"entry3@myrepo",
+                    non_ascii_text.encode("utf-8"),
+                ],
+                f.name,
+            )
+            assert blacklist == get_blacklist()
+    finally:
+        if os.path.exists(f.name):
+            os.unlink(f.name)
+
+
+def test_normalise_blacklist_entry_non_utf8_bytes_uses_latin1_fallback():
+    # type: () -> None
+    normalised = normalise_blacklist_entry(non_ascii_text.encode("latin-1"))
+
+    if tests.PY2:
+        assert normalised == non_ascii_text.encode("latin-1")
+    else:
+        assert normalised == non_ascii_text
 
 
 def test_round_trip_serialisation_bl(blacklist):
     # type: (List[str]) -> None
     """Checks if we can round trip serialise then deserialise a value."""
 
-    f = NamedTemporaryFile(delete=True)
-
-    try_dump(blacklist, f.name)
-
-    assert blacklist == try_load(f.name)
-
+    f = NamedTemporaryFile(delete=False)
     f.close()
+    os.unlink(f.name)
+
+    try:
+        with patch("slackroll.slackroll_blacklist_filename", f.name):
+            add_blacklist_exprs(blacklist)
+
+            assert blacklist == try_load(f.name)
+            assert blacklist == get_blacklist()
+    finally:
+        if os.path.exists(f.name):
+            os.unlink(f.name)
