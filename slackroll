@@ -15,6 +15,7 @@
 # <http://creativecommons.org/publicdomain/zero/1.0/>.
 #
 import bz2
+import codecs
 import fcntl
 import functools
 import glob
@@ -523,20 +524,53 @@ def clentry_from_text(text):
     timestamp = lines[0].strip()
     return ChangeLogEntry(timestamp, text)
 
-def normalise_changelog_text(text):
+def normalise_lossless_text(text):
     # type: (Union[str, bytes]) -> str
     if PY2:
         return text
 
-    # on python3, we convert bytes read from the changelog to latin-1 for
-    # lossless handling for processing (regex splitting etc). When writing it
-    # back to the console, we convert it back to raw bytes (see
-    # changelog_entries_to_bytes()) so that non-utf8 bytes are preserved in the
-    # output.
+    # On python3, convert bytes to latin-1 for lossless internal handling.
+    # Callers can encode back to latin-1 when they need the original bytes.
     if isinstance(text, bytes):
         return text.decode('latin-1')
 
     return text
+
+def normalise_changelog_text(text):
+    # type: (Union[str, bytes]) -> str
+    return normalise_lossless_text(text)
+
+def lossless_text_to_bytes(text):
+    # type: (Any) -> bytes
+    if PY2:
+        if isinstance(text, unicode):
+            return text.encode('latin-1')
+        return bytes(text)
+    return text.encode('latin-1')
+
+def read_lossless_text(filepath):
+    # type: (str) -> str
+    handle = open(filepath, 'rb')
+    try:
+        return normalise_lossless_text(handle.read())
+    finally:
+        handle.close()
+
+def texts_to_printed_bytes(texts):
+    # type: (Sequence[str]) -> bytes
+    return b''.join(lossless_text_to_bytes(text) + b'\n' for text in texts)
+
+def local_info_header_from_text(text):
+    # type: (str) -> str
+    lines = text.splitlines(True)
+    return ''.join(lines[:lines.index(slackroll_local_pkg_filelist_marker)])
+
+def decode_local_filelist_path(text):
+    # type: (str) -> str
+    if PY2:
+        return text.decode('string_escape') # type: ignore[return-value]
+
+    return codecs.decode(lossless_text_to_bytes(text), 'unicode_escape')
 
 def normalise_pickle_state_key(key):
     # type: (Union[str, bytes]) -> str
@@ -550,7 +584,7 @@ def normalise_pickle_state_key(key):
 
 def clentrylist_from_text(text):
     # type: (str) -> List[ChangeLogEntry]
-    text = normalise_changelog_text(text)
+    text = normalise_lossless_text(text)
     entries = text.split(slackroll_changelog_entry_separator)
     entries = [x for x in entries if len(x) > 0]
     return [clentry_from_text(x) for x in entries]
@@ -562,9 +596,7 @@ def get_changelog():
 def changelog_entries_to_bytes(entries):
     # type: (Sequence[ChangeLogEntry]) -> bytes
     text = slackroll_changelog_entry_separator.join('%s' % entry for entry in entries)
-    if PY2:
-        return text
-    return text.encode('latin-1')
+    return lossless_text_to_bytes(text)
 
 def write_raw_output(output):
     # type: (bytes) -> None
@@ -648,7 +680,7 @@ def enough_fs_resources(numpkgs, bytes): # Check if there are enough filesystem 
 def get_self_file_version(): # Get self version from disk file
     # type: () -> int
     try:
-        data = open(slackroll_self_filename, 'r').read()
+        data = read_lossless_text(slackroll_self_filename)
         return int(data)
     except (OSError, IOError, ValueError):
         err = sys.exc_info()[1]
@@ -813,9 +845,9 @@ def print_blacklist():
 def extract_file_list(filename): # Extracts the file list from a local info file
     # type: (str) -> List[str]
     try:
-        lines = open(filename, 'r').readlines()
-        paths = ['/%s' % x.strip().decode('string_escape') for x in lines[lines.index(slackroll_local_pkg_filelist_marker) + 1:]]
-        return paths # type: ignore
+        lines = read_lossless_text(filename).splitlines(True)
+        paths = ['/%s' % decode_local_filelist_path(x.strip()) for x in lines[lines.index(slackroll_local_pkg_filelist_marker) + 1:]]
+        return paths
     except ValueError:
         sys.exit('ERROR: unable to find file list marker in %s' % filename)
     except (OSError, IOError):
@@ -889,7 +921,7 @@ def ignore_package_path(path):
 def get_remote_pkgs(local_filelist, url): # Return a list of packages from FILELIST.TXT
     # type: (str, Optional[str]) -> List[SlackwarePackage]
     try:
-        lines = open(local_filelist, 'r').readlines()
+        lines = read_lossless_text(local_filelist).splitlines(True)
         matches = [slackroll_filelist_pkg_re.match(x) for x in lines]
         nm_sz = [(x.group(slackroll_filelist_pkg_str), x.group(slackroll_filelist_pkg_size)) for x in matches if x is not None]
         return [pkg_from_name_size_url(nm, sz, url) for (nm, sz) in nm_sz if not ignore_package_path(nm)]
@@ -930,7 +962,7 @@ def get_mirror_from_file(filepath):
     # type: (str) -> str
     try:
         filename = os.path.basename(filepath)
-        lines = open(filepath, 'r').readlines()
+        lines = read_lossless_text(filepath).splitlines(True)
         if len(lines) != 1:
             raise ValueError('more than one line on %s file' % filename)
         mirror = lines[0].strip()
@@ -1069,15 +1101,7 @@ class SlackrollOutputInterceptor(object): # Intercepts stdout and uses a pager i
             return
         output = self.__buffer.getvalue()
         self.__buffer.close()
-        numlines = output.count('\n')
-        if needs_pager(numlines):
-            proc = call_pager()
-            assert proc.stdin is not None
-            proc.stdin.write(output)
-            proc.stdin.close()
-            proc.wait()
-        else:
-            sys.stdout.write(output)
+        write_raw_output(lossless_text_to_bytes(output))
 
 def run_program(arg_list, env=None): # Does not exit on errors
     # type: (List[str], Optional[Dict[str, str]]) -> None
@@ -1316,7 +1340,7 @@ def get_remote_info(mirror, package): # Downloads info file and returns its cont
     pkg_base_url = package.base_url(mirror)
     assert pkg_base_url is not None
     download_or_exit(pkg_base_url, remote_file, slackroll_base_dir)
-    data = open(local_file, 'r').read()
+    data = read_lossless_text(local_file)
     try_to_remove(local_file)
     return data
 
@@ -1326,7 +1350,7 @@ def update_changelog(mirror, full=False): # Returns answer to "has it been updat
         temp_dir = get_temp_dir()
         download_or_exit(mirror, slackroll_changelog_filename, temp_dir)
         local_filename = os.path.join(temp_dir, slackroll_changelog_filename)
-        text = normalise_changelog_text(open(local_filename, 'rb').read())
+        text = read_lossless_text(local_filename)
         new_cl = ChangeLog()
         new_cl.add_entries(clentrylist_from_text(text))
         try_dump(new_cl, slackroll_local_changelog)
@@ -1808,23 +1832,13 @@ def update_manifest_database():
         contents = stream.read()
         stream.close()
 
-        # Read the packages and their files
         file_counter = 0
-        for mobj in re.finditer(r'(?ms)^\+\+.*?\sPackage:\s+?(\S+?)\n.*?^\+\+=+\n(.*?)\n\n', contents):
-            pkgpath = mobj.group(1)
-            pkgfiles = mobj.group(2)
-
-            if ignore_package_path(pkgpath):
-                continue
-            database_value = pkg_from_str(pkgpath).archivename
-
-            # Store files in database
-            for y in re.finditer(r'(?m)^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(\S+)$', pkgfiles):
-                filename = '/' + y.group(1)
-                values = manifestdb.get(filename, [])
-                values.append(database_value)
-                manifestdb[filename] = values
-                file_counter += 1
+        parsed_entries = manifest_database_from_text(contents)
+        for filename, values in parsed_entries.items():
+            existing = manifestdb.get(filename, [])
+            existing.extend(values)
+            manifestdb[filename] = existing
+            file_counter += len(values)
         print('%d files' % file_counter)
 
         # Delete local file
@@ -1833,6 +1847,27 @@ def update_manifest_database():
     # Dump database to disk
     print('Dumping database to disk...')
     try_dump(manifestdb, slackroll_manifest_filename)
+
+def manifest_database_from_text(contents):
+    # type: (Union[str, bytes]) -> Dict[str, List[str]]
+    text = normalise_lossless_text(contents)
+    manifestdb = dict() # type: Dict[str, List[str]]
+
+    for mobj in re.finditer(r'(?ms)^\+\+.*?\sPackage:\s+?(\S+?)\n.*?^\+\+=+\n(.*?)\n\n', text):
+        pkgpath = mobj.group(1)
+        pkgfiles = mobj.group(2)
+
+        if ignore_package_path(pkgpath):
+            continue
+        database_value = pkg_from_str(pkgpath).archivename
+
+        for y in re.finditer(r'(?m)^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+(\S+)$', pkgfiles):
+            filename = '/' + y.group(1)
+            values = manifestdb.get(filename, [])
+            values.append(database_value)
+            manifestdb[filename] = values
+
+    return manifestdb
 
 def search_manifest_database(regexp):
     # type: (Pattern[str]) -> None
@@ -1977,18 +2012,13 @@ def install_operations_family(operation, args, local_list, remote_list, persiste
         for pkg in chosen_pkgs:
             try:
                 if pkg_in_map(pkg, local_list):
-                    lines = open(pkg.fullname, 'r').readlines()
-                    header = lines[:lines.index(slackroll_local_pkg_filelist_marker)]
-                    info_map[pkg.fullname] = ''.join(header)
+                    info_map[pkg.fullname] = local_info_header_from_text(read_lossless_text(pkg.fullname))
                 else:
                     info_map[pkg.fullname] = get_remote_info(mirror, pkg)
             except (OSError, IOError):
                 err = sys.exc_info()[1]
                 sys.exit('ERROR: %s' % err)
-        interceptor = SlackrollOutputInterceptor()
-        for pkg in chosen_pkgs:
-            print(info_map[pkg.fullname])
-        interceptor.stop()
+        write_raw_output(texts_to_printed_bytes([info_map[pkg.fullname] for pkg in chosen_pkgs]))
 
     # Review installed .new files
     if is_real_install:
@@ -2002,7 +2032,7 @@ def extend_manifest_list(manifest_list, index, mirror, local_filelist):
     # type: (List[Tuple[Optional[int], str, str]], Optional[int], str, str) -> None
     # Build the list of MANIFEST.bz2 files
     try:
-        lines = open(local_filelist, 'r').readlines()
+        lines = read_lossless_text(local_filelist).splitlines(True)
     except (IOError, OSError):
         err = sys.exc_info()[1]
         sys.exit('ERROR: %s' % err)
@@ -2358,9 +2388,7 @@ if __name__ == "__main__":
             helpfile = slackroll_help_file_template % helpname
             if not is_readable_file(helpfile):
                 sys.exit('ERROR: no help found for "%s"' % helpname)
-            interceptor = SlackrollOutputInterceptor()
-            print(open(helpfile, 'r').read())
-            interceptor.stop()
+            write_raw_output(texts_to_printed_bytes([read_lossless_text(helpfile)]))
             sys.exit()
 
         if operation == 'version':
@@ -2919,13 +2947,13 @@ if __name__ == "__main__":
 
         if operation == 'local-info':
             verify_local_names(args, local_list)
-            interceptor = SlackrollOutputInterceptor()
             try:
-                print('\n'.join(open(x.fullname, 'r').read() for x in concat(local_list[pkg] for pkg in args)))
+                write_raw_output(texts_to_printed_bytes([
+                    '\n'.join(read_lossless_text(x.fullname) for x in concat(local_list[pkg] for pkg in args))
+                ]))
             except (IOError, OSError):
                 err = sys.exc_info()[1]
                 sys.exit('ERROR: %s' % err)
-            interceptor.stop()
             sys.exit()
 
         if operation == 'install-foreign':

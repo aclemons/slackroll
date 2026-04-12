@@ -1,5 +1,11 @@
 import pytest
-from slackroll import ChangeLogEntry, changelog_entries_to_bytes, write_raw_output
+from slackroll import (
+    ChangeLogEntry,
+    SlackrollOutputInterceptor,
+    changelog_entries_to_bytes,
+    lossless_text_to_bytes,
+    write_raw_output,
+)
 
 import tests
 
@@ -107,3 +113,31 @@ def test_write_raw_output_writes_bytes_to_pager():
             write_raw_output(payload)
 
     assert pager.stdin.output == [payload]
+
+
+def test_lossless_text_to_bytes_handles_unicode_input():
+    # type: () -> None
+    payload = b"raw bytes \xb3\xb7\xd8\xd9\n".decode("latin-1")
+
+    assert lossless_text_to_bytes(payload) == b"raw bytes \xb3\xb7\xd8\xd9\n"
+
+
+def test_output_interceptor_writes_bytes_to_pager():
+    # type: () -> None
+    pager = FakePager()
+
+    class FakeTtyStdout(FakeStdout):
+        def isatty(self):
+            # type: () -> bool
+            return True
+
+    fake_stdout = FakeTtyStdout()
+
+    with patch("slackroll.sys.stdout", fake_stdout):
+        interceptor = SlackrollOutputInterceptor()
+        print("intercepted %s" % non_utf8_latin1)
+        with patch("slackroll.needs_pager", lambda _lines: True):
+            with patch("slackroll.call_pager", lambda: pager):
+                interceptor.stop()
+
+    assert pager.stdin.output == [b"intercepted \xb3\xb7\xd8\xd9\n"]
