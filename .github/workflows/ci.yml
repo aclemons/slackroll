@@ -10,6 +10,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Slackware 13.37 / Python 2.6
+            dockerfile: ci/13.37/Dockerfile
+            image_tag: slackroll-ci:13.37-python2
+            test_command: py.test -vv
+            coverage: false
+          - name: Slackware 15.0 / Python 2.7
+            dockerfile: ci/15.0/Dockerfile
+            image_tag: slackroll-ci:15.0-python2
+            test_command: pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=slackroll -vv | tee pytest-coverage.txt
+            coverage: true
+    name: ${{ matrix.name }}
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -24,19 +39,18 @@ jobs:
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
-          file: ci/15.0/Dockerfile
-          load: ${{ github.event_name == 'pull_request' }}
-          tags: slackroll-ci:15.0-python2
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: ${{ matrix.image_tag }}
+          cache-from: type=gha,scope=${{ matrix.image_tag }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_tag }}
 
       - name: Run tests
-        if: github.event_name == 'pull_request'
         run: |
-          docker run --rm -v "$(pwd):/slackroll" -w /slackroll slackroll-ci:15.0-python2 bash -o pipefail -c 'pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=slackroll -vv | tee pytest-coverage.txt'
+          docker run --rm -v "$(pwd):/slackroll" -w /slackroll ${{ matrix.image_tag }} bash -o pipefail -c '${{ matrix.test_command }}'
 
       - name: Coverage
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.coverage
         uses: MishaKav/pytest-coverage-comment@287292879eaaff04116f36d3eb1a670f6e5df1a4 # v1.7.1
         with:
           pytest-coverage-path: ./pytest-coverage.txt

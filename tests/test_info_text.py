@@ -53,13 +53,15 @@ else:
 
 
 @pytest.fixture  # type: ignore
-def temp_dir():
-    # type: () -> Generator[str, None, None]
+def temp_dir(request):
+    # type: (pytest.FixtureRequest) -> str
     dir = mkdtemp()
 
-    yield dir
+    def teardown():
+        shutil.rmtree(dir)
 
-    shutil.rmtree(dir)
+    request.addfinalizer(teardown)
+    return dir
 
 
 def assert_text_preserves_bytes(text, expected_bytes):

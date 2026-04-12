@@ -83,17 +83,19 @@ def manifestlist():
 
 
 @pytest.fixture(scope="session")  # type: ignore
-def changelog_pickle():
-    # type: () -> Generator[None, None, None]
+def changelog_pickle(request):
+    # type: (pytest.FixtureRequest) -> None
 
     # register classes in the __main__ module where they were originally pickled
     setattr(sys.modules["__main__"], "ChangeLog", ChangeLog)
     setattr(sys.modules["__main__"], "ChangeLogEntry", ChangeLogEntry)
 
-    yield
+    def teardown():
+        delattr(sys.modules["__main__"], "ChangeLog")
+        delattr(sys.modules["__main__"], "ChangeLogEntry")
 
-    delattr(sys.modules["__main__"], "ChangeLog")
-    delattr(sys.modules["__main__"], "ChangeLogEntry")
+    request.addfinalizer(teardown)
+    return None
 
 
 @pytest.fixture  # type: ignore
