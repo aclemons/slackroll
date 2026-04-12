@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 
 
 if tests.PY2:
-    non_utf8_tld = "\xb3\xb7\xd8\xd9"
+    non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
-    non_utf8_tld = b"\xb3\xb7\xd8\xd9".decode("latin-1")
+    non_utf8_latin1 = b"\xb3\xb7\xd8\xd9".decode("latin-1")
 
 
 class FakeBinaryBuffer(object):
@@ -80,7 +80,7 @@ def test_changelog_entries_to_bytes_preserves_non_utf8_bytes():
     # type: () -> None
     entry = ChangeLogEntry(
         "Tue Feb 17 00:00:00 UTC 2026",
-        "  Example non-UTF-8 TLD: %s\n" % non_utf8_tld,
+        "  Thanks to contributor %s for the report.\n" % non_utf8_latin1,
     )
 
     output = changelog_entries_to_bytes([entry])

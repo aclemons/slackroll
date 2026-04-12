@@ -33,10 +33,10 @@ if TYPE_CHECKING:
 
 if tests.PY2:
     o_umlaut = "\xc3\xb6"
-    non_utf8_tld = "\xb3\xb7\xd8\xd9"
+    non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
     o_umlaut = b"\xc3\xb6".decode("utf-8")
-    non_utf8_tld = b"\xb3\xb7\xd8\xd9".decode("latin-1")
+    non_utf8_latin1 = b"\xb3\xb7\xd8\xd9".decode("latin-1")
 
 
 @pytest.fixture  # type: ignore
@@ -282,7 +282,7 @@ def test_changelog_text_normalisation_preserves_bytes():
     if tests.PY2:
         assert text == sample
     else:
-        assert text == "example %s" % non_utf8_tld
+        assert text == "example %s" % non_utf8_latin1
         assert text.encode("latin-1") == sample
 
 
@@ -290,7 +290,7 @@ def test_clentrylist_from_text_preserves_non_utf8_bytes():
     # type: () -> None
     payload = (
         b"Tue Feb 17 00:00:00 UTC 2026\n"
-        b"  Example non-UTF-8 TLD: \xb3\xb7\xd8\xd9\n"
+        b"  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
         + b"+--------------------------+\n"
     )
 
@@ -301,8 +301,8 @@ def test_clentrylist_from_text_preserves_non_utf8_bytes():
         assert "\xb3\xb7\xd8\xd9" in entry.text
     else:
         assert entry.timestamp == "Tue Feb 17 00:00:00 UTC 2026"
-        assert entry.text.endswith("%s\n" % non_utf8_tld)
-        assert entry.text.encode("latin-1").endswith(b"\xb3\xb7\xd8\xd9\n")
+        assert "%s" % non_utf8_latin1 in entry.text
+        assert entry.text.encode("latin-1").find(b"\xb3\xb7\xd8\xd9") != -1
 
 
 def test_round_trip_changelog_non_ascii(changelog_non_ascii):

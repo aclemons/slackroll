@@ -54,7 +54,7 @@ if tests.PY2:
                 "python3": slackroll_state_installed,
             }
 
-            data.close()  # type: ignore
+            data.close()
 
 
 def test_round_trip_serialisation(temp_dir):
@@ -69,7 +69,7 @@ def test_round_trip_serialisation(temp_dir):
         data["package1"] = slackroll_state_installed
         data["package2"] = slackroll_state_installed
 
-        data.close()  # type: ignore
+        data.close()
 
         data = load_persistent_db(data_file)
 
@@ -78,4 +78,4 @@ def test_round_trip_serialisation(temp_dir):
             "package2": slackroll_state_installed,
         }
 
-        data.close()  # type: ignore
+        data.close()

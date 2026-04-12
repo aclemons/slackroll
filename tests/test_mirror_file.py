@@ -6,9 +6,9 @@ from slackroll import get_mirror_from_file
 import tests
 
 if tests.PY2:
-    non_utf8_tld = "\xb3\xb7\xd8\xd9"
+    non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
-    non_utf8_tld = b"\xb3\xb7\xd8\xd9".decode("latin-1")
+    non_utf8_latin1 = b"\xb3\xb7\xd8\xd9".decode("latin-1")
 
 
 def test_get_mirror_from_file_adds_trailing_slash():
@@ -32,7 +32,7 @@ def test_get_mirror_from_file_preserves_non_utf8_bytes():
 
         mirror = get_mirror_from_file(f.name)
 
-        assert mirror == "https://example.%s/" % non_utf8_tld
+        assert mirror == "https://example.%s/" % non_utf8_latin1
         if not tests.PY2:
             assert b"\xb3\xb7\xd8\xd9" in mirror.encode("latin-1")
     finally:

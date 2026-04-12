@@ -2231,7 +2231,7 @@ def words_to_words_distance(words1, words2): # Distance between two lists of wor
     return (sum(word_to_word_list_distance(i, words2) for i in words1) + abs(len(words1) - len(words2)))
 
 def load_persistent_db(filename):
-    # type: (str) -> Dict[str, int]
+    # type: (str) -> Any
     # Internally, shelve uses anydbm.open which defaults to dbhash on Python2.
     # That module has been removed in Python3. To prepare for the Python3
     # upgrade, we are going to switch the format used for the persistent.db file
@@ -2245,10 +2245,10 @@ def load_persistent_db(filename):
     # to have used this version and have the existing files upgraded. New
     # installations will immediately default to the new format. We can then
     # ship the python3 version safely.
-    data = shelve.open(filename, 'c', pickle_protocol)
+    data = shelve.open(filename, 'c', pickle_protocol) # type: Any
 
-    if not needs_db_upgrade(data.dict): # type: ignore
-        return data # type: ignore
+    if not needs_db_upgrade(data.dict):
+        return data
 
     tmpdir = get_temp_dir()
     output_name = os.path.join(tmpdir, "persistence.db")
@@ -2264,7 +2264,7 @@ def load_persistent_db(filename):
     finally:
         try_to_remove(output_name)
 
-    return shelve.open(filename, 'c', pickle_protocol) # type: ignore
+    return shelve.open(filename, 'c', pickle_protocol)
 
 
 if __name__ == "__main__":
@@ -2986,7 +2986,7 @@ if __name__ == "__main__":
                 upgrade_or_install(arg, False)
             for pkg in pkgs:
                 persistent_list[pkg.name] = slackroll_state_foreign
-            persistent_list.sync() # type: ignore
+            persistent_list.sync()
 
             # Go over .new files
             cur_dotnew = extract_dotnew_files([x.local() for x in pkgs], etc_too=True)
@@ -3105,12 +3105,12 @@ if __name__ == "__main__":
         if isinstance(err, KeyboardInterrupt):
             sys.stderr.write('\nProgram aborted by user\n')
         if persistent_list is not None:
-            persistent_list.close() # type: ignore
+            persistent_list.close()
         sys.exit(slackroll_exit_failure)
     except SlackrollBatchModeError:
         sys.stderr.write('\nProgram aborted because operation could not be completed in batch mode\n')
         if persistent_list is not None:
-            persistent_list.close() # type: ignore
+            persistent_list.close()
         sys.exit(slackroll_exit_failure)
     except IndexError:
         sys.stderr.write('ERROR: no operation given\n')
