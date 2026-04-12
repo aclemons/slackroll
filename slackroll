@@ -2273,7 +2273,8 @@ if __name__ == "__main__":
         local_list = None
         remote_list = None
         persistent_list = None
-        URLOpenerTarget._urlopener = SlackrollURLopener() # type: ignore
+        if PY2:
+            URLOpenerTarget._urlopener = SlackrollURLopener() # type: ignore
         socket.setdefaulttimeout(slackroll_socket_timeout)
         standarize_locales()
 
