@@ -1,10 +1,14 @@
+# -*- coding: utf-8 -*-
+
 import os
+import re
 import shutil
 from tempfile import mkdtemp
 
 import pytest
 from slackroll import (
     SlackwarePackage,
+    build_lossless_cli_regexp,
     decode_local_filelist_path,
     extend_manifest_list,
     extract_file_list,
@@ -13,6 +17,7 @@ from slackroll import (
     local_info_header_from_text,
     manifest_database_from_text,
     read_lossless_text,
+    search_manifest_database,
     slackroll_local_pkg_filelist_marker,
     texts_to_printed_bytes,
 )
@@ -266,3 +271,52 @@ def test_manifest_database_from_text_ignores_source_packages():
     )
 
     assert manifest_database_from_text(contents) == {}
+
+
+def test_lossless_cli_regexp_matches_utf8_manifest_paths():
+    # type: () -> None
+    expected_path = (
+        b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt"
+        if tests.PY2
+        else b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt".decode(
+            "latin-1"
+        )
+    )
+    contents = (
+        b"++==========================\n"
+        b"|| Package: ./patches/packages/ca-certificates-1.0-noarch-1.txz\n"
+        b"++==========================\n"
+        b"-rw-r--r-- root/root 1476 2026-02-17 00:00 usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt\n"
+        b"\n"
+    )
+
+    manifestdb = manifest_database_from_text(contents)
+    regexp = build_lossless_cli_regexp(["Főtanúsítvány"])
+
+    matches = [path for path in manifestdb if regexp.search(path) is not None]
+
+    assert matches == [expected_path]
+
+
+def test_search_manifest_database_writes_non_ascii_matches_as_bytes():
+    # type: () -> None
+    expected_path = (
+        b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt"
+        if tests.PY2
+        else b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt".decode(
+            "latin-1"
+        )
+    )
+    manifestdb = {
+        expected_path: ["ca-certificates-1.0-noarch-1.txz"],
+    }
+    regexp = build_lossless_cli_regexp(["Főtanúsítvány"])
+    written = []  # type: List[bytes]
+
+    with patch("slackroll.try_load", lambda _path: manifestdb):
+        with patch("slackroll.write_raw_output", lambda output: written.append(output)):
+            search_manifest_database(regexp)
+
+    assert len(written) == 1
+    assert b"ca-certificates-1.0-noarch-1.txz" in written[0]
+    assert b"\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny" in written[0]

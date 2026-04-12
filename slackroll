@@ -549,6 +549,17 @@ def normalise_lossless_text(text):
 
     return text
 
+def normalise_cli_lossless_text(text):
+    # type: (str) -> str
+    if PY2:
+        return text
+    return os.fsencode(text).decode('latin-1')
+
+def build_lossless_cli_regexp(args):
+    # type: (Sequence[str]) -> Pattern[str]
+    all_regexes = '|'.join('(?:%s)' % normalise_cli_lossless_text(x) for x in args)
+    return re.compile(all_regexes)
+
 def normalise_changelog_text(text):
     # type: (Union[str, bytes]) -> str
     return normalise_lossless_text(text)
@@ -1901,14 +1912,13 @@ def search_manifest_database(regexp):
     if len(reversed) == 0:
         print('No matching files')
     else:
-        interceptor = SlackrollOutputInterceptor()
-        print('Matching files:')
+        lines = ['Matching files:'] # type: List[str]
         for pkg in reversed:
-            print('    %s:' % pkg)
-            print('\n'.join('\t%s' % x for x in reversed[pkg]))
-            print('')
-        print('End of list')
-        interceptor.stop()
+            lines.append('    %s:' % pkg)
+            lines.extend('\t%s' % x for x in reversed[pkg])
+            lines.append('')
+        lines.append('End of list')
+        write_raw_output(texts_to_printed_bytes(lines))
 
 def parse_pkg_arg(arg): # Returns tuple (Is full name?, Name, SlackwarePackage or None) -- auxiliar of parse_install_args()
     # type: (str) -> Tuple[bool, str, Optional[SlackwarePackage]]
@@ -2531,9 +2541,8 @@ if __name__ == "__main__":
         if operation in ['local-search', 'missing-search']:
             test = None # type: Optional[Callable[[str], bool]]
             if operation == 'local-search':
-                all_regexes = '|'.join('(?:%s)' % x for x in args)
                 try:
-                    regexp = re.compile(all_regexes)
+                    regexp = build_lossless_cli_regexp(args)
                 except re.error:
                     sys.exit('ERROR: invalid regular expression')
                 test = lambda x: regexp.search(x) is not None
@@ -2559,13 +2568,12 @@ if __name__ == "__main__":
                 sys.exit()
 
             matches.sort()
-            interceptor = SlackrollOutputInterceptor()
-            print(header)
+            lines = [header] # type: List[str]
             for (name, files) in matches:
-                print('    %s' % os.path.basename(name))
-                print(''.join('\t%s\n' % x for x in files))
-            print('End of list')
-            interceptor.stop()
+                lines.append('    %s' % os.path.basename(name))
+                lines.extend('\t%s' % x for x in files)
+            lines.append('End of list')
+            write_raw_output(texts_to_printed_bytes(lines))
             sys.exit()
 
         if operation == 'orphan-search':
@@ -2606,9 +2614,8 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'manifest-search':
-            all_regexes = '|'.join('(?:%s)' % x for x in args)
             try:
-                regexp = re.compile(all_regexes)
+                regexp = build_lossless_cli_regexp(args)
             except re.error:
                 sys.exit('ERROR: invalid regular expression')
             search_manifest_database(regexp)
@@ -2932,9 +2939,8 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation in ['install-path', 'download-path', 'info-path', 'urls-path', 'remove-path']:
-            all_regexes = '|'.join('(?:%s)' % x for x in args)
             try:
-                regexp = re.compile(all_regexes)
+                regexp = build_lossless_cli_regexp(args)
             except re.error:
                 sys.exit('ERROR: invalid regular expression')
 
@@ -3104,9 +3110,8 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'path-search':
-            all_regexes = '|'.join('(?:%s)' % x for x in args)
             try:
-                regexp = re.compile(all_regexes)
+                regexp = build_lossless_cli_regexp(args)
             except re.error:
                 sys.exit('ERROR: invalid regular expression')
 
