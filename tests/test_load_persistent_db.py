@@ -78,4 +78,8 @@ def test_round_trip_serialisation(temp_dir):
             "package2": slackroll_state_installed,
         }
 
+        if tests.PY2:
+            assert "package1".decode("latin-1") in data
+            assert data["package1".decode("latin-1")] == slackroll_state_installed
+
         data.close()
