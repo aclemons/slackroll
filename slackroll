@@ -111,7 +111,6 @@ if PY2:
 
     URLOpenerTarget = urllib
 
-
 try:
     from typing import TYPE_CHECKING
 except ImportError:
@@ -2253,6 +2252,50 @@ def words_to_words_distance(words1, words2): # Distance between two lists of wor
     # against the words of the other list, plus the difference in words.
     return (sum(word_to_word_list_distance(i, words2) for i in words1) + abs(len(words1) - len(words2)))
 
+def normalise_persistent_db_key(key):
+    # type: (Any) -> str
+    if PY2 and isinstance(key, unicode):
+        return key.encode('latin-1')
+
+    return str(key)
+
+class PersistentDBProxy(object):
+    def __init__(self, data):
+        # type: (Any) -> None
+        self._data = data
+
+    def __contains__(self, key):
+        # type: (str) -> bool
+        return normalise_persistent_db_key(key) in self._data
+
+    def __getitem__(self, key):
+        # type: (str) -> int
+        return int(self._data[normalise_persistent_db_key(key)])
+
+    def __setitem__(self, key, value):
+        # type: (str, int) -> None
+        self._data[normalise_persistent_db_key(key)] = value
+
+    def __delitem__(self, key):
+        # type: (str) -> None
+        del self._data[normalise_persistent_db_key(key)]
+
+    def __iter__(self):
+        # type: () -> Iterable[str]
+        return iter(self.keys())
+
+    def keys(self):
+        # type: () -> List[str]
+        return [normalise_lossless_text(key) for key in self._data.keys()]
+
+    def sync(self):
+        # type: () -> None
+        self._data.sync()
+
+    def close(self):
+        # type: () -> None
+        self._data.close()
+
 def load_persistent_db(filename):
     # type: (str) -> Any
     # Internally, shelve uses anydbm.open which defaults to dbhash on Python2.
@@ -2271,7 +2314,7 @@ def load_persistent_db(filename):
     data = shelve.open(filename, 'c', pickle_protocol) # type: Any
 
     if not needs_db_upgrade(data.dict):
-        return data
+        return PersistentDBProxy(data)
 
     tmpdir = get_temp_dir()
     output_name = os.path.join(tmpdir, "persistence.db")
@@ -2287,7 +2330,7 @@ def load_persistent_db(filename):
     finally:
         try_to_remove(output_name)
 
-    return shelve.open(filename, 'c', pickle_protocol)
+    return PersistentDBProxy(shelve.open(filename, 'c', pickle_protocol))
 
 
 if __name__ == "__main__":
