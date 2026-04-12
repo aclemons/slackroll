@@ -383,6 +383,12 @@ class SlackwarePackage(object):
         assert isinstance(other, SlackwarePackage)
         return pkg_name_cmp(self.__name, other.__name)
 
+    def __lt__(self, other):
+        # type: (object) -> bool
+        if not isinstance(other, SlackwarePackage):
+            return NotImplemented
+        return pkg_name_cmp(self.__name, other.__name) < 0
+
     def local(self): # Returns the equivalent local pkg
         # type: () -> SlackwarePackage
         return SlackwarePackage(self.__name, self.__version, self.__arch, self.__build, slackroll_local_pkgs_dir, None, None, None)
