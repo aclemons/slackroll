@@ -1,4 +1,4 @@
-from slackroll import pkg_name_cmp, sort_with_cmp, transient_cmp
+from slackroll import SlackwarePackage, pkg_name_cmp, sort_with_cmp, transient_cmp
 
 
 def test_transient_cmp_normal_pkg_same_state():
@@ -68,3 +68,24 @@ def test_sort_with_cmp_orders_prioritised_packages_first():
     sort_with_cmp(names, pkg_name_cmp)
 
     assert names == ["aaa_glibc-solibs", "glibc-solibs", "sed", "python3"]
+
+
+def test_slackware_package_sort_uses_prioritised_name_order():
+    # type: () -> None
+    packages = [
+        SlackwarePackage("python3", "1.0", "x86_64", "1", "./a", ".txz", None, None),
+        SlackwarePackage(
+            "glibc-solibs", "1.0", "x86_64", "1", "./a", ".txz", None, None
+        ),
+        SlackwarePackage(
+            "aaa_glibc-solibs", "1.0", "x86_64", "1", "./a", ".txz", None, None
+        ),
+    ]
+
+    packages.sort()
+
+    assert [pkg.name for pkg in packages] == [
+        "aaa_glibc-solibs",
+        "glibc-solibs",
+        "python3",
+    ]
