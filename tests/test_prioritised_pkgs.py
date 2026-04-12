@@ -1,4 +1,4 @@
-from slackroll import transient_cmp
+from slackroll import pkg_name_cmp, sort_with_cmp, transient_cmp
 
 
 def test_transient_cmp_normal_pkg_same_state():
@@ -59,3 +59,12 @@ def test_transient_cmp_prioritised_pkg_pkgtools():
     assert transient_cmp(left, right) == -1
     assert transient_cmp(right, left) == 1
     assert transient_cmp(left, left) == 0
+
+
+def test_sort_with_cmp_orders_prioritised_packages_first():
+    # type: () -> None
+    names = ["python3", "glibc-solibs", "sed", "aaa_glibc-solibs"]
+
+    sort_with_cmp(names, pkg_name_cmp)
+
+    assert names == ["aaa_glibc-solibs", "glibc-solibs", "sed", "python3"]
