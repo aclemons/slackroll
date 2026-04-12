@@ -130,7 +130,6 @@ if TYPE_CHECKING:
         Pattern,
         Sequence,
         Set,
-        TextIO,
         Tuple,
         TypeVar,
         Union,
@@ -620,15 +619,47 @@ def try_dump(object, filepath): # pickle.dump()
 def try_load(filepath): # pickle.load()
     # type: (str) -> Any
     try:
-        return pickle.load(open(filepath, 'rb'))
+        handle = open(filepath, 'rb')
+        try:
+            if PY2:
+                return pickle.load(handle)
+
+            try:
+                return pickle.load(handle, encoding='utf-8')
+            except UnicodeDecodeError:
+                handle.seek(0)
+                return pickle.load(handle, encoding='bytes')
+        finally:
+            handle.close()
     except (OSError, IOError, pickle.PickleError):
         err = sys.exc_info()[1]
         sys.exit('ERROR: %s' % err)
 
+def normalise_blacklist_entry(entry):
+    # type: (Union[str, bytes]) -> str
+    if PY2:
+        if isinstance(entry, bytes):
+            return entry
+
+        return entry.encode('utf-8')
+
+    if isinstance(entry, str):
+        return entry
+
+    err = None
+    for encoding in ['utf-8', 'latin-1']:
+        try:
+            return entry.decode(encoding)
+        except UnicodeDecodeError:
+            err = sys.exc_info()[1]
+
+    sys.exit('ERROR: Unable to decode blacklist entry %s' % err)
+
 def get_blacklist(): # Get blacklist expression list
     # type: () -> List[str]
     if is_readable_file(slackroll_blacklist_filename):
-        return try_load(slackroll_blacklist_filename) # type: ignore
+        loaded = try_load(slackroll_blacklist_filename) # type: Union[str, bytes]
+        return [normalise_blacklist_entry(x) for x in loaded]
     return []
 
 def split_blacklist_re(blacklist_str):
