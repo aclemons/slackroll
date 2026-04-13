@@ -568,20 +568,25 @@ def lossless_text_to_bytes(text):
     if PY2:
         if isinstance(text, unicode):
             return text.encode('latin-1')
-        return bytes(text)
-    return text.encode('latin-1')
+        py2_byte_text = text  # type: bytes
+        return py2_byte_text
+
+    py3_byte_text = text.encode('latin-1')  # type: bytes
+    return py3_byte_text
 
 def read_lossless_text(filepath):
     # type: (str) -> str
     handle = open(filepath, 'rb')
     try:
-        return normalise_lossless_text(handle.read())
+        data = handle.read()  # type: Union[str, bytes]
+        return normalise_lossless_text(data)
     finally:
         handle.close()
 
 def texts_to_printed_bytes(texts):
     # type: (Sequence[str]) -> bytes
-    return b''.join(lossless_text_to_bytes(text) + b'\n' for text in texts)
+    newline = '\n'.encode('ascii')
+    return ''.encode('ascii').join(lossless_text_to_bytes(text) + newline for text in texts)
 
 def local_info_header_from_text(text):
     # type: (str) -> str
@@ -623,7 +628,7 @@ def changelog_entries_to_bytes(entries):
 
 def write_raw_output(output):
     # type: (bytes) -> None
-    numlines = output.count(b'\n')
+    numlines = output.count('\n'.encode('ascii'))
     if needs_pager(numlines):
         proc = call_pager()
         assert proc.stdin is not None
@@ -786,7 +791,7 @@ def try_load(filepath, load_py2_strings_as_bytes=False): # pickle.load()
 def normalise_blacklist_entry(entry):
     # type: (Union[str, bytes]) -> str
     if PY2:
-        if isinstance(entry, bytes):
+        if isinstance(entry, str):
             return entry
 
         return entry.encode('utf-8')
