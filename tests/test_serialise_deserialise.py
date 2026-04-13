@@ -2,7 +2,6 @@
 
 import os
 import sys
-from tempfile import NamedTemporaryFile
 
 import pytest
 from slackroll import (
@@ -17,11 +16,6 @@ from slackroll import (
 
 import tests
 
-if tests.PY2:
-    from mock import patch  # type: ignore
-else:
-    from unittest.mock import patch
-
 try:
     from typing import TYPE_CHECKING
 except ImportError:
@@ -35,8 +29,8 @@ if tests.PY2:
     o_umlaut = "\xc3\xb6"
     non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
-    o_umlaut = b"\xc3\xb6".decode("utf-8")
-    non_utf8_latin1 = b"\xb3\xb7\xd8\xd9".decode("latin-1")
+    o_umlaut = tests.decode_bytes_literal("\xc3\xb6", "utf-8")
+    non_utf8_latin1 = tests.decode_bytes_literal("\xb3\xb7\xd8\xd9", "latin-1")
 
 
 @pytest.fixture  # type: ignore
@@ -91,6 +85,7 @@ def changelog_pickle(request):
     setattr(sys.modules["__main__"], "ChangeLogEntry", ChangeLogEntry)
 
     def teardown():
+        # type: () -> None
         delattr(sys.modules["__main__"], "ChangeLog")
         delattr(sys.modules["__main__"], "ChangeLogEntry")
 
@@ -156,7 +151,7 @@ def test_round_trip_serialisation_repos(repos):
     # type: (List[str]) -> None
     """Checks if we can round trip serialise then deserialise a value."""
 
-    f = NamedTemporaryFile(delete=True)
+    f = tests.named_temporary_file(delete=True)
 
     try_dump(repos, f.name)
 
@@ -180,7 +175,7 @@ def test_round_trip_serialisation_manifestlist(manifestlist):
     # type: (List[str]) -> None
     """Checks if we can round trip serialise then deserialise a value."""
 
-    f = NamedTemporaryFile(delete=True)
+    f = tests.named_temporary_file(delete=True)
 
     try_dump(manifestlist, f.name)
 
@@ -208,7 +203,7 @@ def test_round_trip_changelog(changelog):
     # type: (ChangeLog) -> None
     """Checks if we can round trip serialise then deserialise a value."""
 
-    f = NamedTemporaryFile(delete=True)
+    f = tests.named_temporary_file(delete=True)
 
     try_dump(changelog, f.name)
 
@@ -251,17 +246,19 @@ def test_deserialise_py2_changelog_non_ascii_bytes_only(changelog_pickle):
     if tests.PY2:
         assert o_umlaut in loaded.last_batch()[0].text
     else:
-        assert b"\xc3\xb6" in loaded.last_batch()[0].text.encode("latin-1")
+        assert tests.bytes_literal("\xc3\xb6") in loaded.last_batch()[0].text.encode(
+            "latin-1"
+        )
 
 
-def test_get_changelog_normalises_py2_changelog_pickle():
-    # type: () -> None
+def test_get_changelog_normalises_py2_changelog_pickle(request):
+    # type: (object) -> None
     data_file = os.path.join(
         os.path.dirname(__file__), "..", "data", "py2_changelog_non_ascii.db"
     )
 
-    with patch("slackroll.slackroll_local_changelog", data_file):
-        loaded = get_changelog()
+    tests.start_patch(request, "slackroll.slackroll_local_changelog", data_file)
+    loaded = get_changelog()
 
     assert loaded.num_batches() == 1
     assert loaded.last_batch()[0].timestamp == "Fri Jan 11 21:15:41 UTC 2019"
@@ -271,13 +268,17 @@ def test_get_changelog_normalises_py2_changelog_pickle():
         assert o_umlaut in loaded.last_batch()[0].text
         assert o_umlaut in loaded.last_batch()[1].text
     else:
-        assert b"\xc3\xb6" in loaded.last_batch()[0].text.encode("latin-1")
-        assert b"\xc3\xb6" in loaded.last_batch()[1].text.encode("latin-1")
+        assert tests.bytes_literal("\xc3\xb6") in loaded.last_batch()[0].text.encode(
+            "latin-1"
+        )
+        assert tests.bytes_literal("\xc3\xb6") in loaded.last_batch()[1].text.encode(
+            "latin-1"
+        )
 
 
 def test_changelog_text_normalisation_preserves_bytes():
     # type: () -> None
-    sample = b"example \xb3\xb7\xd8\xd9"
+    sample = tests.bytes_literal("example \xb3\xb7\xd8\xd9")
 
     text = normalise_changelog_text(sample)
 
@@ -291,9 +292,11 @@ def test_changelog_text_normalisation_preserves_bytes():
 def test_clentrylist_from_text_preserves_non_utf8_bytes():
     # type: () -> None
     payload = (
-        b"Tue Feb 17 00:00:00 UTC 2026\n"
-        b"  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
-        + b"+--------------------------+\n"
+        tests.bytes_literal("Tue Feb 17 00:00:00 UTC 2026\n")
+        + tests.bytes_literal(
+            "  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
+        )
+        + tests.bytes_literal("+--------------------------+\n")
     )
 
     entry = clentrylist_from_text(normalise_changelog_text(payload))[0]
@@ -304,14 +307,17 @@ def test_clentrylist_from_text_preserves_non_utf8_bytes():
     else:
         assert entry.timestamp == "Tue Feb 17 00:00:00 UTC 2026"
         assert "%s" % non_utf8_latin1 in entry.text
-        assert entry.text.encode("latin-1").find(b"\xb3\xb7\xd8\xd9") != -1
+        assert (
+            entry.text.encode("latin-1").find(tests.bytes_literal("\xb3\xb7\xd8\xd9"))
+            != -1
+        )
 
 
 def test_round_trip_changelog_non_ascii(changelog_non_ascii):
     # type: (ChangeLog) -> None
     """Checks if we can round trip serialise then deserialise a value."""
 
-    f = NamedTemporaryFile(delete=True)
+    f = tests.named_temporary_file(delete=True)
 
     try_dump(changelog_non_ascii, f.name)
 

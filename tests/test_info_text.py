@@ -24,11 +24,6 @@ from slackroll import (
 
 import tests
 
-if tests.PY2:
-    from mock import patch  # type: ignore
-else:
-    from unittest.mock import patch
-
 try:
     from typing import TYPE_CHECKING
 except ImportError:
@@ -49,7 +44,7 @@ else:
 if tests.PY2:
     non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
-    non_utf8_latin1 = b"\xb3\xb7\xd8\xd9".decode("latin-1")
+    non_utf8_latin1 = tests.decode_bytes_literal("\xb3\xb7\xd8\xd9", "latin-1")
 
 
 @pytest.fixture  # type: ignore
@@ -58,6 +53,7 @@ def temp_dir(request):
     dir = mkdtemp()
 
     def teardown():
+        # type: () -> None
         shutil.rmtree(dir)
 
     request.addfinalizer(teardown)
@@ -86,7 +82,9 @@ class FakePackage(object):
 def test_read_lossless_text_preserves_non_utf8_bytes(temp_dir):
     # type: (str) -> None
     filename = os.path.join(temp_dir, "example.txt")
-    payload = b"Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
+    payload = tests.bytes_literal(
+        "Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
+    )
 
     handle = open(filename, "wb")
     try:
@@ -96,12 +94,14 @@ def test_read_lossless_text_preserves_non_utf8_bytes(temp_dir):
 
     text = read_lossless_text(filename)
 
-    assert_text_preserves_bytes(text, b"\xb3\xb7\xd8\xd9")
+    assert_text_preserves_bytes(text, tests.bytes_literal("\xb3\xb7\xd8\xd9"))
 
 
-def test_get_remote_info_preserves_non_utf8_bytes(temp_dir):
-    # type: (str) -> None
-    payload = b"PACKAGE NAME: example\nPACKAGE LOCATION: ./patches\nURL: https://example.\xb3\xb7\xd8\xd9/\n"
+def test_get_remote_info_preserves_non_utf8_bytes(temp_dir, request):
+    # type: (str, pytest.FixtureRequest) -> None
+    payload = tests.bytes_literal(
+        "PACKAGE NAME: example\nPACKAGE LOCATION: ./patches\nURL: https://example.\xb3\xb7\xd8\xd9/\n"
+    )
     package = cast(SlackwarePackage, FakePackage("example-1.0-noarch-1.txz"))
 
     def fake_download_or_exit(_mirror, filename, destination):
@@ -113,11 +113,11 @@ def test_get_remote_info_preserves_non_utf8_bytes(temp_dir):
         finally:
             handle.close()
 
-    with patch("slackroll.slackroll_base_dir", temp_dir):
-        with patch("slackroll.download_or_exit", fake_download_or_exit):
-            info_text = get_remote_info("https://example.invalid/", package)
+    tests.start_patch(request, "slackroll.slackroll_base_dir", temp_dir)
+    tests.start_patch(request, "slackroll.download_or_exit", fake_download_or_exit)
+    info_text = get_remote_info("https://example.invalid/", package)
 
-    assert_text_preserves_bytes(info_text, b"\xb3\xb7\xd8\xd9")
+    assert_text_preserves_bytes(info_text, tests.bytes_literal("\xb3\xb7\xd8\xd9"))
 
 
 def test_local_info_header_from_text_preserves_non_utf8_bytes():
@@ -133,7 +133,7 @@ def test_local_info_header_from_text_preserves_non_utf8_bytes():
         header == "PACKAGE NAME: example\nURL: https://example.%s/\n" % non_utf8_latin1
     )
     if not tests.PY2:
-        assert b"\xb3\xb7\xd8\xd9" in header.encode("latin-1")
+        assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in header.encode("latin-1")
 
 
 def test_texts_to_printed_bytes_preserves_non_utf8_bytes():
@@ -145,16 +145,16 @@ def test_texts_to_printed_bytes_preserves_non_utf8_bytes():
         ]
     )
 
-    assert output.endswith(b"Second line\n")
-    assert b"\xb3\xb7\xd8\xd9" in output
+    assert output.endswith(tests.bytes_literal("Second line\n"))
+    assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in output
 
 
 def test_texts_to_printed_bytes_single_text_matches_help_output():
     # type: () -> None
     output = texts_to_printed_bytes(["Help topic: %s" % non_utf8_latin1])
 
-    assert output.endswith(b"\n")
-    assert b"\xb3\xb7\xd8\xd9" in output
+    assert output.endswith(tests.bytes_literal("\n"))
+    assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in output
 
 
 def test_decode_local_filelist_path_decodes_escapes_losslessly():
@@ -165,17 +165,17 @@ def test_decode_local_filelist_path_decodes_escapes_losslessly():
 
     assert decoded == "usr share/doc/example-%s" % non_utf8_latin1
     if not tests.PY2:
-        assert b"\xb3\xb7\xd8\xd9" in decoded.encode("latin-1")
+        assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in decoded.encode("latin-1")
 
 
 def test_extract_file_list_preserves_non_utf8_bytes_and_escapes(temp_dir):
     # type: (str) -> None
     filename = os.path.join(temp_dir, "local-info.txt")
     payload = (
-        b"PACKAGE NAME: example\n"
-        b"FILE LIST:\n"
-        b"usr\\040share/doc/example-\xb3\xb7\xd8\xd9\n"
-        b"usr/bin/example\n"
+        tests.bytes_literal("PACKAGE NAME: example\n")
+        + tests.bytes_literal("FILE LIST:\n")
+        + tests.bytes_literal("usr\\040share/doc/example-\xb3\xb7\xd8\xd9\n")
+        + tests.bytes_literal("usr/bin/example\n")
     )
 
     handle = open(filename, "wb")
@@ -189,15 +189,16 @@ def test_extract_file_list_preserves_non_utf8_bytes_and_escapes(temp_dir):
     assert paths[0] == "/usr share/doc/example-%s" % non_utf8_latin1
     assert paths[1] == "/usr/bin/example"
     if not tests.PY2:
-        assert b"\xb3\xb7\xd8\xd9" in paths[0].encode("latin-1")
+        assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in paths[0].encode("latin-1")
 
 
 def test_get_remote_pkgs_preserves_non_utf8_bytes(temp_dir):
     # type: (str) -> None
     filename = os.path.join(temp_dir, "FILELIST.TXT")
-    payload = (
-        b"-rw-r--r-- 1 root root 123 Jan 01 00:00 ./patches/packages/example-\xb3\xb7\xd8\xd9-1.0-noarch-1.txz\n"
-        b"-rw-r--r-- 1 root root 456 Jan 01 00:00 ./slackware64/ap/bash-5.2.037-x86_64-1.txz\n"
+    payload = tests.bytes_literal(
+        "-rw-r--r-- 1 root root 123 Jan 01 00:00 ./patches/packages/example-\xb3\xb7\xd8\xd9-1.0-noarch-1.txz\n"
+    ) + tests.bytes_literal(
+        "-rw-r--r-- 1 root root 456 Jan 01 00:00 ./slackware64/ap/bash-5.2.037-x86_64-1.txz\n"
     )
 
     handle = open(filename, "wb")
@@ -214,15 +215,18 @@ def test_get_remote_pkgs_preserves_non_utf8_bytes(temp_dir):
     )
     assert packages[1].fullname == "./slackware64/ap/bash-5.2.037-x86_64-1.txz"
     if not tests.PY2:
-        assert b"\xb3\xb7\xd8\xd9" in packages[0].fullname.encode("latin-1")
+        assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in packages[0].fullname.encode(
+            "latin-1"
+        )
 
 
 def test_extend_manifest_list_reads_filelist_losslessly(temp_dir):
     # type: (str) -> None
     filename = os.path.join(temp_dir, "FILELIST.TXT")
-    payload = (
-        b"-rw-r--r-- 1 root root 123 Jan 01 00:00 ./patches/MANIFEST.bz2\n"
-        b"-rw-r--r-- 1 root root 456 Jan 01 00:00 ./extra/MANIFEST.bz2\n"
+    payload = tests.bytes_literal(
+        "-rw-r--r-- 1 root root 123 Jan 01 00:00 ./patches/MANIFEST.bz2\n"
+    ) + tests.bytes_literal(
+        "-rw-r--r-- 1 root root 456 Jan 01 00:00 ./extra/MANIFEST.bz2\n"
     )
 
     handle = open(filename, "wb")
@@ -243,12 +247,18 @@ def test_extend_manifest_list_reads_filelist_losslessly(temp_dir):
 def test_manifest_database_from_text_preserves_non_utf8_bytes():
     # type: () -> None
     contents = (
-        b"++==========================\n"
-        b"|| Package: ./patches/packages/example-\xb3\xb7\xd8\xd9-1.0-noarch-1.txz\n"
-        b"++==========================\n"
-        b"-rw-r--r-- root/root 12 2026-02-17 00:00 usr/doc/example-\xb3\xb7\xd8\xd9/README\n"
-        b"-rw-r--r-- root/root 42 2026-02-17 00:00 usr/bin/example\n"
-        b"\n"
+        tests.bytes_literal("++==========================\n")
+        + tests.bytes_literal(
+            "|| Package: ./patches/packages/example-\xb3\xb7\xd8\xd9-1.0-noarch-1.txz\n"
+        )
+        + tests.bytes_literal("++==========================\n")
+        + tests.bytes_literal(
+            "-rw-r--r-- root/root 12 2026-02-17 00:00 usr/doc/example-\xb3\xb7\xd8\xd9/README\n"
+        )
+        + tests.bytes_literal(
+            "-rw-r--r-- root/root 42 2026-02-17 00:00 usr/bin/example\n"
+        )
+        + tests.bytes_literal("\n")
     )
 
     manifestdb = manifest_database_from_text(contents)
@@ -257,19 +267,23 @@ def test_manifest_database_from_text_preserves_non_utf8_bytes():
     assert manifestdb["/usr/bin/example"] == [package_name]
     assert manifestdb["/usr/doc/example-%s/README" % non_utf8_latin1] == [package_name]
     if not tests.PY2:
-        assert b"\xb3\xb7\xd8\xd9" in list(manifestdb.keys())[0].encode(
-            "latin-1"
-        ) or b"\xb3\xb7\xd8\xd9" in list(manifestdb.keys())[1].encode("latin-1")
+        assert tests.bytes_literal("\xb3\xb7\xd8\xd9") in list(manifestdb.keys())[
+            0
+        ].encode("latin-1") or tests.bytes_literal("\xb3\xb7\xd8\xd9") in list(
+            manifestdb.keys()
+        )[1].encode("latin-1")
 
 
 def test_manifest_database_from_text_ignores_source_packages():
     # type: () -> None
     contents = (
-        b"++==========================\n"
-        b"|| Package: ./source/ap/example.tar.gz\n"
-        b"++==========================\n"
-        b"-rw-r--r-- root/root 42 2026-02-17 00:00 source/ap/example/example.SlackBuild\n"
-        b"\n"
+        tests.bytes_literal("++==========================\n")
+        + tests.bytes_literal("|| Package: ./source/ap/example.tar.gz\n")
+        + tests.bytes_literal("++==========================\n")
+        + tests.bytes_literal(
+            "-rw-r--r-- root/root 42 2026-02-17 00:00 source/ap/example/example.SlackBuild\n"
+        )
+        + tests.bytes_literal("\n")
     )
 
     assert manifest_database_from_text(contents) == {}
@@ -278,18 +292,25 @@ def test_manifest_database_from_text_ignores_source_packages():
 def test_lossless_cli_regexp_matches_utf8_manifest_paths():
     # type: () -> None
     expected_path = (
-        b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt"
+        tests.bytes_literal(
+            "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt"
+        )
         if tests.PY2
-        else b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt".decode(
-            "latin-1"
+        else tests.decode_bytes_literal(
+            "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt",
+            "latin-1",
         )
     )
     contents = (
-        b"++==========================\n"
-        b"|| Package: ./patches/packages/ca-certificates-1.0-noarch-1.txz\n"
-        b"++==========================\n"
-        b"-rw-r--r-- root/root 1476 2026-02-17 00:00 usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt\n"
-        b"\n"
+        tests.bytes_literal("++==========================\n")
+        + tests.bytes_literal(
+            "|| Package: ./patches/packages/ca-certificates-1.0-noarch-1.txz\n"
+        )
+        + tests.bytes_literal("++==========================\n")
+        + tests.bytes_literal(
+            "-rw-r--r-- root/root 1476 2026-02-17 00:00 usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt\n"
+        )
+        + tests.bytes_literal("\n")
     )
 
     manifestdb = manifest_database_from_text(contents)
@@ -300,13 +321,16 @@ def test_lossless_cli_regexp_matches_utf8_manifest_paths():
     assert matches == [expected_path]
 
 
-def test_search_manifest_database_writes_non_ascii_matches_as_bytes():
-    # type: () -> None
+def test_search_manifest_database_writes_non_ascii_matches_as_bytes(request):
+    # type: (pytest.FixtureRequest) -> None
     expected_path = (
-        b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt"
+        tests.bytes_literal(
+            "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt"
+        )
         if tests.PY2
-        else b"/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt".decode(
-            "latin-1"
+        else tests.decode_bytes_literal(
+            "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt",
+            "latin-1",
         )
     )
     manifestdb = {
@@ -315,10 +339,12 @@ def test_search_manifest_database_writes_non_ascii_matches_as_bytes():
     regexp = build_lossless_cli_regexp(["Főtanúsítvány"])
     written = []  # type: List[bytes]
 
-    with patch("slackroll.try_load", lambda _path: manifestdb):
-        with patch("slackroll.write_raw_output", lambda output: written.append(output)):
-            search_manifest_database(regexp)
+    tests.start_patch(request, "slackroll.try_load", lambda _path: manifestdb)
+    tests.start_patch(
+        request, "slackroll.write_raw_output", lambda output: written.append(output)
+    )
+    search_manifest_database(regexp)
 
     assert len(written) == 1
-    assert b"ca-certificates-1.0-noarch-1.txz" in written[0]
-    assert b"\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny" in written[0]
+    assert tests.bytes_literal("ca-certificates-1.0-noarch-1.txz") in written[0]
+    assert tests.bytes_literal("\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny") in written[0]

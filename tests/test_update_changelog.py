@@ -7,11 +7,6 @@ from slackroll import get_changelog, slackroll_changelog_filename, update_change
 
 import tests
 
-if tests.PY2:
-    from mock import patch  # type: ignore
-else:
-    from unittest.mock import patch
-
 try:
     from typing import TYPE_CHECKING
 except ImportError:
@@ -27,6 +22,7 @@ def temp_dir(request):
     dir = mkdtemp()
 
     def teardown():
+        # type: () -> None
         shutil.rmtree(dir)
 
     request.addfinalizer(teardown)
@@ -42,13 +38,15 @@ def assert_text_preserves_bytes(text, expected_bytes):
     assert text.encode("latin-1").find(expected_bytes) != -1
 
 
-def test_update_changelog_full_preserves_non_utf8_bytes(temp_dir):
-    # type: (str) -> None
+def test_update_changelog_full_preserves_non_utf8_bytes(temp_dir, request):
+    # type: (str, pytest.FixtureRequest) -> None
     changelog_db = os.path.join(temp_dir, "changelog.db")
     payload = (
-        b"Tue Feb 17 00:00:00 UTC 2026\n"
-        b"  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
-        b"+--------------------------+\n"
+        tests.bytes_literal("Tue Feb 17 00:00:00 UTC 2026\n")
+        + tests.bytes_literal(
+            "  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
+        )
+        + tests.bytes_literal("+--------------------------+\n")
     )
 
     def fake_download_or_exit(_mirror, _filename, destination):
@@ -60,37 +58,36 @@ def test_update_changelog_full_preserves_non_utf8_bytes(temp_dir):
         finally:
             handle.close()
 
-    with patch("slackroll.get_temp_dir", lambda: temp_dir):
-        with patch("slackroll.slackroll_local_changelog", changelog_db):
-            with patch("slackroll.download_or_exit", fake_download_or_exit):
-                assert update_changelog("https://example.invalid/", full=True) is True
+    tests.start_patch(request, "slackroll.get_temp_dir", lambda: temp_dir)
+    tests.start_patch(request, "slackroll.slackroll_local_changelog", changelog_db)
+    tests.start_patch(request, "slackroll.download_or_exit", fake_download_or_exit)
+    assert update_changelog("https://example.invalid/", full=True) is True
 
-                changelog = get_changelog()
+    changelog = get_changelog()
 
-                assert changelog.num_batches() == 1
-                assert (
-                    changelog.last_batch()[0].timestamp
-                    == "Tue Feb 17 00:00:00 UTC 2026"
-                )
-                assert_text_preserves_bytes(
-                    changelog.last_batch()[0].text,
-                    b"\xb3\xb7\xd8\xd9",
-                )
+    assert changelog.num_batches() == 1
+    assert changelog.last_batch()[0].timestamp == "Tue Feb 17 00:00:00 UTC 2026"
+    assert_text_preserves_bytes(
+        changelog.last_batch()[0].text,
+        tests.bytes_literal("\xb3\xb7\xd8\xd9"),
+    )
 
 
-def test_update_changelog_incremental_preserves_non_utf8_bytes(temp_dir):
-    # type: (str) -> None
+def test_update_changelog_incremental_preserves_non_utf8_bytes(temp_dir, request):
+    # type: (str, pytest.FixtureRequest) -> None
     changelog_db = os.path.join(temp_dir, "changelog.db")
     initial_payload = (
-        b"Mon Feb 16 00:00:00 UTC 2026\n"
-        b"  Existing entry\n"
-        b"+--------------------------+\n"
+        tests.bytes_literal("Mon Feb 16 00:00:00 UTC 2026\n")
+        + tests.bytes_literal("  Existing entry\n")
+        + tests.bytes_literal("+--------------------------+\n")
     )
     new_lines = [
-        b"Tue Feb 17 00:00:00 UTC 2026\n",
-        b"  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n",
-        b"+--------------------------+\n",
-        b"Mon Feb 16 00:00:00 UTC 2026\n",
+        tests.bytes_literal("Tue Feb 17 00:00:00 UTC 2026\n"),
+        tests.bytes_literal(
+            "  Thanks to contributor \xb3\xb7\xd8\xd9 for the report.\n"
+        ),
+        tests.bytes_literal("+--------------------------+\n"),
+        tests.bytes_literal("Mon Feb 16 00:00:00 UTC 2026\n"),
     ]
 
     def fake_download_or_exit(_mirror, _filename, destination):
@@ -110,29 +107,28 @@ def test_update_changelog_incremental_preserves_non_utf8_bytes(temp_dir):
         def readline(self):
             # type: () -> bytes
             if len(self._lines) == 0:
-                return b""
+                return tests.bytes_literal("")
             return self._lines.pop(0)
 
         def close(self):
             # type: () -> None
             return None
 
-    with patch("slackroll.get_temp_dir", lambda: temp_dir):
-        with patch("slackroll.slackroll_local_changelog", changelog_db):
-            with patch("slackroll.download_or_exit", fake_download_or_exit):
-                assert update_changelog("https://example.invalid/", full=True) is True
+    tests.start_patch(request, "slackroll.get_temp_dir", lambda: temp_dir)
+    tests.start_patch(request, "slackroll.slackroll_local_changelog", changelog_db)
+    tests.start_patch(request, "slackroll.download_or_exit", fake_download_or_exit)
+    assert update_changelog("https://example.invalid/", full=True) is True
 
-            with patch("slackroll.urlopen", lambda _url: FakeResponse(new_lines)):
-                assert update_changelog("https://example.invalid/") is True
+    tests.start_patch(
+        request, "slackroll.urlopen", lambda _url: FakeResponse(new_lines)
+    )
+    assert update_changelog("https://example.invalid/") is True
 
-                changelog = get_changelog()
+    changelog = get_changelog()
 
-                assert changelog.num_batches() == 2
-                assert (
-                    changelog.last_batch()[0].timestamp
-                    == "Tue Feb 17 00:00:00 UTC 2026"
-                )
-                assert_text_preserves_bytes(
-                    changelog.last_batch()[0].text,
-                    b"\xb3\xb7\xd8\xd9",
-                )
+    assert changelog.num_batches() == 2
+    assert changelog.last_batch()[0].timestamp == "Tue Feb 17 00:00:00 UTC 2026"
+    assert_text_preserves_bytes(
+        changelog.last_batch()[0].text,
+        tests.bytes_literal("\xb3\xb7\xd8\xd9"),
+    )

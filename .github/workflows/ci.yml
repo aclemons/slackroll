@@ -14,6 +14,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Slackware 12.0 / Python 2.5
+            dockerfile: ci/12.0/Dockerfile
+            image_tag: slackroll-ci:12.0-python2
+            test_command: py.test -vv
+            coverage: false
           - name: Slackware 13.37 / Python 2.6
             dockerfile: ci/13.37/Dockerfile
             image_tag: slackroll-ci:13.37-python2
