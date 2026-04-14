@@ -13,7 +13,7 @@ except ImportError:
     TYPE_CHECKING = False
 
 if TYPE_CHECKING:
-    from typing import Generator, List
+    from typing import List
 
 
 @pytest.fixture  # type: ignore

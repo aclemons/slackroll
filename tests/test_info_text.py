@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
 import shutil
 from tempfile import mkdtemp
 
@@ -31,7 +30,7 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from typing import Generator, List, Optional, Tuple, TypeVar, cast
+    from typing import List, Optional, Tuple, TypeVar, cast
 
     T = TypeVar("T")
 else:
@@ -321,6 +320,23 @@ def test_lossless_cli_regexp_matches_utf8_manifest_paths():
     assert matches == [expected_path]
 
 
+def test_lossless_cli_regexp_matches_utf8_package_names():
+    # type: () -> None
+    package_name = (
+        tests.bytes_literal(
+            "ca-certificates-F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny-1.0-noarch-1"
+        )
+        if tests.PY2
+        else tests.decode_bytes_literal(
+            "ca-certificates-F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny-1.0-noarch-1",
+            "latin-1",
+        )
+    )
+    regexp = build_lossless_cli_regexp(["Főtanúsítvány"])
+
+    assert regexp.search(package_name) is not None
+
+
 def test_search_manifest_database_writes_non_ascii_matches_as_bytes(request):
     # type: (pytest.FixtureRequest) -> None
     expected_path = (
@@ -370,3 +386,20 @@ def test_build_lossless_cli_regexp_matches_non_utf8_locale_bytes(request):
     regexp = build_lossless_cli_regexp(["Főtanúsítvány"])
 
     assert regexp.search(expected_name) is not None
+
+
+def test_search_manifest_database_prints_no_matching_files(request):
+    # type: (pytest.FixtureRequest) -> None
+    fake_stdout = tests.FakeStream()
+    regexp = build_lossless_cli_regexp(["missing"])
+
+    tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
+    tests.start_patch(
+        request,
+        "slackroll.try_load",
+        lambda _path: {"/usr/bin/example": ["pkg-1.0-noarch-1.txz"]},
+    )
+
+    search_manifest_database(regexp)
+
+    assert fake_stdout.getvalue() == "No matching files\n"

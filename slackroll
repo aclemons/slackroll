@@ -822,13 +822,17 @@ def split_blacklist_re(blacklist_str):
         return (blacklist_str, '')
     return tuple(blacklist_str.split('@', 1))
 
+def compile_blacklist_regexp(regex_str):
+    # type: (str) -> Pattern[str]
+    return re.compile(normalise_cli_lossless_text(regex_str))
+
 def get_blacklist_re(): # Almost the same, but already converted to regular expressions
     # type: () -> List[Tuple[Pattern[str], Pattern[str]]]
     regex_list = []
     try:
         for x in get_blacklist():
             pkg_regex, url_regex = split_blacklist_re(x)
-            regex_list.append((re.compile(pkg_regex), re.compile(url_regex)))
+            regex_list.append((compile_blacklist_regexp(pkg_regex), compile_blacklist_regexp(url_regex)))
         return regex_list
     except re.error:
         sys.exit('ERROR: invalid regular expression found in blacklist')
@@ -840,8 +844,8 @@ def add_blacklist_exprs(expressions): # Add expressions to the blacklist
         try:
             pkg_regex, url_regex = split_blacklist_re(regex_str)
 
-            re.compile(pkg_regex)
-            re.compile(url_regex)
+            compile_blacklist_regexp(pkg_regex)
+            compile_blacklist_regexp(url_regex)
             valid_ones.append(regex_str)
         except re.error:
             sys.exit('ERROR: "%s" is an invalid regular expression' % regex_str)
