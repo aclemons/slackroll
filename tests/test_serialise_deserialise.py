@@ -327,3 +327,29 @@ def test_round_trip_changelog_non_ascii(changelog_non_ascii):
     assert loaded.last_batch() == changelog_non_ascii.last_batch()
 
     f.close()
+
+
+def test_try_load_retries_with_bytes_after_utf8_decode_failure(request):
+    # type: (pytest.FixtureRequest) -> None
+    if tests.PY2:
+        return
+
+    f = tests.named_temporary_file(delete=True)
+    f.write(tests.bytes_literal("payload"))
+    f.flush()
+
+    calls = []  # type: List[Tuple[int, Optional[str]]]
+
+    def fake_pickle_load(handle, encoding=None):
+        # type: (object, Optional[str]) -> object
+        calls.append((handle.tell(), encoding))
+        if encoding == "utf-8":
+            raise UnicodeDecodeError("utf-8", tests.bytes_literal("\xff"), 0, 1, "boom")
+        return {"encoding": encoding}
+
+    tests.start_patch(request, "slackroll.pickle.load", fake_pickle_load)
+
+    assert try_load(f.name) == {"encoding": "bytes"}
+    assert calls == [(0, "utf-8"), (0, "bytes")]
+
+    f.close()
