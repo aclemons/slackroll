@@ -7,14 +7,6 @@ from slackroll import load_persistent_db, slackroll_state_installed
 
 import tests
 
-try:
-    from typing import TYPE_CHECKING
-except ImportError:
-    TYPE_CHECKING = False
-
-if TYPE_CHECKING:
-    from typing import Generator
-
 
 @pytest.fixture  # type: ignore
 def temp_dir(request):
