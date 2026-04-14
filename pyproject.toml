@@ -2,7 +2,11 @@
 name = "slackroll"
 version = "55"
 description = "Package or upgrade manager for Slackware Linux"
-authors = ["Ricardo Garcia <commits@rg3.name>", "Andrew Clemons <andrew.clemons@gmail.com>"]
+authors = [
+  "Ricardo Garcia <commits@rg3.name>",
+  "Andrew Clemons <andrew.clemons@gmail.com>",
+  "Brent Spillner <spillner@acm.org>"
+]
 license = "CC0 Public Domain Dedication"
 requires-python = ">=3.9"
 dependencies = [ ]
