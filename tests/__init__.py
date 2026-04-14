@@ -8,7 +8,7 @@ except ImportError:
     TYPE_CHECKING = False
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, List
 
 PY2 = sys.version_info[0] == 2
 
@@ -16,6 +16,25 @@ if PY2:
     from mock import patch as _patch  # type: ignore
 else:
     from unittest.mock import patch as _patch
+
+
+class FakeStream(object):
+    def __init__(self):
+        # type: () -> None
+        self.messages = []  # type: List[str]
+
+    def write(self, text):
+        # type: (str) -> int
+        self.messages.append(text)
+        return len(text)
+
+    def flush(self):
+        # type: () -> None
+        return None
+
+    def getvalue(self):
+        # type: () -> str
+        return "".join(self.messages)
 
 
 def start_patch(request, target, *args, **kwargs):
