@@ -647,6 +647,27 @@ def list_changelog_operation(cl):
     print('End of list')
     interceptor.stop()
 
+def kernel_upgrade_operation(local_list, remote_list, persistent_list):
+    # type: (Dict[str, List[SlackwarePackage]], Dict[str, List[SlackwarePackage]], Dict[str, int]) -> None
+    names = [x for x in local_list if x.startswith(slackroll_kernel_pkg_indicator) and persistent_list[x] == slackroll_state_outdated]
+    if len(names) == 0:
+        print('No outdated kernel packages')
+    install_operations_family('installpkg', names, local_list, remote_list, persistent_list, use_pasture=False)
+    post_kernel_operation()
+
+
+def kernel_clean_operation(local_list, remote_list, persistent_list):
+    # type: (Dict[str, List[SlackwarePackage]], Dict[str, List[SlackwarePackage]], Dict[str, int]) -> None
+    outdated_kernel_pkgs_full = [[y for y in local_list[x] if y not in remote_list[x]]
+            for x in local_list if x.startswith(slackroll_kernel_pkg_indicator) and persistent_list[x] == slackroll_state_installed]
+    outdated_kernel_pkgs = concat(outdated_kernel_pkgs_full)
+    if len(outdated_kernel_pkgs) == 0:
+        print('No obsolete kernel packages found')
+        return
+    remove_pkgs(outdated_kernel_pkgs)
+    post_kernel_operation()
+
+
 def list_transient_operation(local_list, remote_list, persistent_list):
     # type: (Dict[str, List[SlackwarePackage]], Dict[str, List[SlackwarePackage]], Dict[str, int]) -> None
     pkgs_and_states = [(pkg, persistent_list[pkg]) for pkg in persistent_list if persistent_list[pkg] in slackroll_transient_states]
@@ -2856,11 +2877,7 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'kernel-upgrade':
-            names = [x for x in local_list if x.startswith(slackroll_kernel_pkg_indicator) and persistent_list[x] == slackroll_state_outdated]
-            if len(names) == 0:
-                print('No outdated kernel packages')
-            install_operations_family('installpkg', names, local_list, remote_list, persistent_list, use_pasture=False)
-            post_kernel_operation()
+            kernel_upgrade_operation(local_list, remote_list, persistent_list)
             sys.exit()
 
         if operation == 'clean-cache':
@@ -3175,14 +3192,7 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'kernel-clean':
-            outdated_kernel_pkgs_full = [[y for y in local_list[x] if y not in remote_list[x]]
-                    for x in local_list if x.startswith(slackroll_kernel_pkg_indicator) and persistent_list[x] == slackroll_state_installed]
-            outdated_kernel_pkgs = concat(outdated_kernel_pkgs_full)
-            if len(outdated_kernel_pkgs) == 0:
-                print('No obsolete kernel packages found')
-                sys.exit()
-            remove_pkgs(outdated_kernel_pkgs)
-            post_kernel_operation()
+            kernel_clean_operation(local_list, remote_list, persistent_list)
             sys.exit()
 
         if operation == 'name-search':
