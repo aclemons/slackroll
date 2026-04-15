@@ -20,60 +20,13 @@ except ImportError:
     TYPE_CHECKING = False
 
 if TYPE_CHECKING:
-    from typing import List
+    pass
 
 
 if tests.PY2:
     non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
     non_utf8_latin1 = tests.decode_bytes_literal("\xb3\xb7\xd8\xd9", "latin-1")
-
-
-class FakeBinaryBuffer(object):
-    def __init__(self):
-        # type: () -> None
-        self.output = []  # type: List[bytes]
-
-    def write(self, data):
-        # type: (bytes) -> None
-        self.output.append(data)
-
-    def flush(self):
-        # type: () -> None
-        return None
-
-    def close(self):
-        # type: () -> None
-        return None
-
-
-class FakeStdout(object):
-    def __init__(self):
-        # type: () -> None
-        self.buffer = FakeBinaryBuffer()
-        self.output = []  # type: List[str]
-
-    def isatty(self):
-        # type: () -> bool
-        return False
-
-    def write(self, data):
-        # type: (str) -> None
-        self.output.append(data)
-
-    def flush(self):
-        # type: () -> None
-        return None
-
-
-class FakePager(object):
-    def __init__(self):
-        # type: () -> None
-        self.stdin = FakeBinaryBuffer()
-
-    def wait(self):
-        # type: () -> None
-        return None
 
 
 def test_changelog_entries_to_bytes_preserves_non_utf8_bytes():
@@ -90,7 +43,7 @@ def test_changelog_entries_to_bytes_preserves_non_utf8_bytes():
 
 def test_write_raw_output_writes_bytes_to_stdout(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = FakeStdout()
+    fake_stdout = tests.FakeStdout()
     payload = tests.bytes_literal("raw bytes \xb3\xb7\xd8\xd9\n")
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
@@ -105,7 +58,7 @@ def test_write_raw_output_writes_bytes_to_stdout(request):
 
 def test_write_raw_output_writes_bytes_to_pager(request):
     # type: (pytest.FixtureRequest) -> None
-    pager = FakePager()
+    pager = tests.FakePager()
     payload = tests.bytes_literal("raw bytes \xb3\xb7\xd8\xd9\n")
 
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
@@ -126,14 +79,8 @@ def test_lossless_text_to_bytes_handles_unicode_input():
 
 def test_output_interceptor_writes_bytes_to_pager(request):
     # type: (pytest.FixtureRequest) -> None
-    pager = FakePager()
-
-    class FakeTtyStdout(FakeStdout):
-        def isatty(self):
-            # type: () -> bool
-            return True
-
-    fake_stdout = FakeTtyStdout()
+    pager = tests.FakePager()
+    fake_stdout = tests.FakeTtyStdout()
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
@@ -158,7 +105,7 @@ def test_full_changelog_operation_writes_all_batches_in_reverse_order(request):
         ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  second batch entry\n")
     )
 
-    pager = FakePager()
+    pager = tests.FakePager()
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 
@@ -177,7 +124,7 @@ def test_full_changelog_operation_empty_changelog_writes_empty_output(request):
     # type: (pytest.FixtureRequest) -> None
     cl = ChangeLog()
 
-    fake_stdout = FakeStdout()
+    fake_stdout = tests.FakeStdout()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: False)
 
@@ -196,7 +143,7 @@ def test_changelog_operation_writes_last_batch_only(request):
     cl.start_new_batch()
     cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  new entry\n"))
 
-    pager = FakePager()
+    pager = tests.FakePager()
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 
@@ -214,13 +161,8 @@ def test_list_changelog_operation_lists_entries_newest_first(request):
     cl.start_new_batch()
     cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  new entry\n"))
 
-    class FakeTtyStdout(FakeStdout):
-        def isatty(self):
-            # type: () -> bool
-            return True
-
-    fake_stdout = FakeTtyStdout()
-    pager = FakePager()
+    fake_stdout = tests.FakeTtyStdout()
+    pager = tests.FakePager()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
@@ -242,7 +184,7 @@ def test_changelog_entries_operation_writes_selected_entries(request):
     cl.start_new_batch()
     cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  entry one\n"))
 
-    pager = FakePager()
+    pager = tests.FakePager()
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 

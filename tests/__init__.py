@@ -65,6 +65,10 @@ class PersistentList(object):
         # type: (str) -> None
         del self._data[key]
 
+    def __iter__(self):
+        # type: () -> Any
+        return iter(self._data)
+
     def keys(self):
         # type: () -> List[str]
         return list(self._data.keys())
@@ -138,3 +142,56 @@ def build_pkg(name, version, path):
     from slackroll import SlackwarePackage
 
     return SlackwarePackage(name, version, "x86_64", "1", path, ".txz", None, None)
+
+
+class FakeBinaryBuffer(object):
+    def __init__(self):
+        # type: () -> None
+        self.output = []  # type: List[bytes]
+
+    def write(self, data):
+        # type: (bytes) -> None
+        self.output.append(data)
+
+    def flush(self):
+        # type: () -> None
+        return None
+
+    def close(self):
+        # type: () -> None
+        return None
+
+
+class FakeStdout(object):
+    def __init__(self):
+        # type: () -> None
+        self.buffer = FakeBinaryBuffer()
+        self.output = []  # type: List[str]
+
+    def isatty(self):
+        # type: () -> bool
+        return False
+
+    def write(self, data):
+        # type: (str) -> None
+        self.output.append(data)
+
+    def flush(self):
+        # type: () -> None
+        return None
+
+
+class FakeTtyStdout(FakeStdout):
+    def isatty(self):
+        # type: () -> bool
+        return True
+
+
+class FakePager(object):
+    def __init__(self):
+        # type: () -> None
+        self.stdin = FakeBinaryBuffer()
+
+    def wait(self):
+        # type: () -> None
+        return None

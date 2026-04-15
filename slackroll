@@ -647,6 +647,67 @@ def list_changelog_operation(cl):
     print('End of list')
     interceptor.stop()
 
+def list_transient_operation(local_list, remote_list, persistent_list):
+    # type: (Dict[str, List[SlackwarePackage]], Dict[str, List[SlackwarePackage]], Dict[str, int]) -> None
+    pkgs_and_states = [(pkg, persistent_list[pkg]) for pkg in persistent_list if persistent_list[pkg] in slackroll_transient_states]
+    if len(pkgs_and_states) == 0:
+        print('No transient packages found')
+        return
+    sort_with_cmp(pkgs_and_states, transient_cmp)
+
+    # Translate states to strings and precalculate constants
+    pkgs_and_str_states = [(name, slackroll_state_strings[state]) for (name, state) in pkgs_and_states]
+    max_state_len = max(len(slackroll_state_strings[x]) for x in slackroll_transient_states)
+    max_name_len = max(len(a) for (a, b) in pkgs_and_str_states)
+    format = '    %%-%ss  %%-%ss  %%s' % (max_state_len, max_name_len)
+
+    # Print the transient list
+    interceptor = SlackrollOutputInterceptor()
+    print('Transient packages:')
+    print('\n'.join(format % (state, name, tr_pkg_detail(local_list, remote_list, persistent_list, name)) for (name, state) in pkgs_and_str_states))
+    print('End of list')
+    maybe_print_key_pkg_watchout(persistent_list)
+    interceptor.stop()
+
+
+def list_upgrades_and_outdated_frozen_operation(operation, local_list, remote_list, persistent_list):
+    # type: (str, Dict[str, List[SlackwarePackage]], Dict[str, List[SlackwarePackage]], Dict[str, int]) -> None
+    if operation == 'list-upgrades':
+        names = pkgs_in_state(persistent_list, [slackroll_state_outdated])
+    else: # list-outdated-frozen
+        names = pkgs_in_state(persistent_list, [slackroll_state_frozen])
+        names = [x for x in names if not up_to_date(local_list[x], not_pasture(remote_list[x]))]
+
+    if len(names) == 0:
+        if operation == 'list-upgrades':
+            print('No outdated packages')
+        else: # list-outdated-frozen
+            print('No frozen packages would be outdated')
+        return
+
+    interceptor = SlackrollOutputInterceptor()
+    if operation == 'list-upgrades':
+        print('Available upgrades:')
+    else: # list-outdated-frozen
+        print('Would be outdated:')
+
+    sort_with_cmp(names, pkg_name_cmp)
+    for name in names:
+        candidates = not_pasture(remote_list[name])
+        if len(candidates) == 0:
+            print('    %s: WARNING: only present in /pasture/\n' % name)
+            continue
+        print('    %s:' % name)
+        print('\n'.join('\tLocal:\t%s' % pkg.archivename for pkg in local_list[name]))
+        print('\n'.join('\tRemote:\t%s' % pkg.fullname for pkg in candidates))
+        print('')
+    print('End of list')
+
+    if operation == 'list-upgrades':
+        maybe_print_key_pkg_watchout(persistent_list)
+    interceptor.stop()
+
+
 def changelog_entries_operation(cl, args):
     # type: (ChangeLog, List[str]) -> None
     entries = []
@@ -2828,62 +2889,11 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation in ['list-upgrades', 'list-outdated-frozen']:
-            if operation == 'list-upgrades':
-                names = pkgs_in_state(persistent_list, [slackroll_state_outdated])
-            else: # list-outdated-frozen
-                names = pkgs_in_state(persistent_list, [slackroll_state_frozen])
-                names = [x for x in names if not up_to_date(local_list[x], not_pasture(remote_list[x]))]
-
-            if len(names) == 0:
-                if operation == 'list-upgrades':
-                    print('No outdated packages')
-                else: # list-outdated-frozen
-                    print('No frozen packages would be outdated')
-                sys.exit()
-
-            interceptor = SlackrollOutputInterceptor()
-            if operation == 'list-upgrades':
-                print('Available upgrades:')
-            else: # list-outdated-frozen
-                print('Would be outdated:')
-
-            sort_with_cmp(names, pkg_name_cmp)
-            for name in names:
-                candidates = not_pasture(remote_list[name])
-                if len(candidates) == 0:
-                    print('    %s: WARNING: only present in /pasture/\n' % name)
-                    continue
-                print('    %s:' % name)
-                print('\n'.join('\tLocal:\t%s' % pkg.archivename for pkg in local_list[name]))
-                print('\n'.join('\tRemote:\t%s' % pkg.fullname for pkg in candidates))
-                print('')
-            print('End of list')
-
-            if operation == 'list-upgrades':
-                maybe_print_key_pkg_watchout(persistent_list)
-            interceptor.stop()
+            list_upgrades_and_outdated_frozen_operation(operation, local_list, remote_list, persistent_list)
             sys.exit()
 
         if operation == 'list-transient':
-            pkgs_and_states = [(pkg, persistent_list[pkg]) for pkg in persistent_list if persistent_list[pkg] in slackroll_transient_states]
-            if len(pkgs_and_states) == 0:
-                print('No transient packages found')
-                sys.exit()
-            sort_with_cmp(pkgs_and_states, transient_cmp)
-
-            # Translate states to strings and precalculate constants
-            pkgs_and_str_states = [(name, slackroll_state_strings[state]) for (name, state) in pkgs_and_states]
-            max_state_len = max(len(slackroll_state_strings[x]) for x in slackroll_transient_states)
-            max_name_len = max(len(a) for (a, b) in pkgs_and_str_states)
-            format = '    %%-%ss  %%-%ss  %%s' % (max_state_len, max_name_len)
-
-            # Print the transient list
-            interceptor = SlackrollOutputInterceptor()
-            print('Transient packages:')
-            print('\n'.join(format % (state, name, tr_pkg_detail(local_list, remote_list, persistent_list, name)) for (name, state) in pkgs_and_str_states))
-            print('End of list')
-            maybe_print_key_pkg_watchout(persistent_list)
-            interceptor.stop()
+            list_transient_operation(local_list, remote_list, persistent_list)
             sys.exit()
 
         if operation == 'list-new':
