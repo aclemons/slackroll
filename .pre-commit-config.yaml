@@ -28,21 +28,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: b831c3dc5d27d9da294ae4e915773b99aa24a7c5 # frozen: v0.15.10
     hooks:
-      - id: ruff-check # run ruff equivalent of isort on everything
-        args: ["--select", "I", "--target-version", "py39", "--fix"]
       - id: ruff-check
-        files: ^tests/ # only check tests right now.
-        args:
-          [
-            "--config",
-            'lint.ignore = ["F401"]',
-            "--target-version",
-            "py39",
-            "--fix",
-          ]
+        args: ["--fix"]
       - id: ruff-format
         files: ^tests/ # we won't reformat everything yet.
-        args: ["--target-version", "py39"]
 
   - repo: local
     hooks:

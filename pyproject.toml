@@ -18,3 +18,18 @@ dev = [
     "ruff==0.15.4",
     "toml==0.10.2",
 ]
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# F821: Python 2 built-in names in py2 compat blocks (raw_input, long, xrange, unicode)
+# F401: TYPE_CHECKING uses try/except ImportError pattern; ruff doesn't recognise it as a guard
+# E501: main script has long lines and is not reformatted yet
+"slackroll" = ["F821", "F401", "E501"]
+# TYPE_CHECKING guard imports look unused to ruff but are needed by mypy
+# E501: long string literals (binary data, URLs) that cannot be wrapped
+"tests/**" = ["F401", "E501"]

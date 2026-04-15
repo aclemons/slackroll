@@ -1692,7 +1692,6 @@ def handle_dotnew_files_installation_interactive(dotnew_files): # Handles .new f
         rename_new = ('M', 'mv %s %s' % (basenew, baseold))
         run_difftool = ('V', '%s %s %s' % (srdiff, baseold, basenew))
         visual_new = ('V', '%s %s' % (visual, basenew))
-        visual_old = ('V', '%s %s' % (visual, baseold))
 
         # Repeating options menu (break when user chooses to review next file)
         pair_iterations = 0
@@ -2098,7 +2097,6 @@ def update_operation(mirror):
 
     for (x, repo) in enumerate(get_repo_list()):
         displayed_name = '%s from repository %s' % (slackroll_filelist_filename, x)
-        full_url = urljoin(repo, slackroll_filelist_filename)
         download_or_exit(repo, slackroll_filelist_filename, get_temp_dir(), displayed_name)
         extend_remote_list(local_filelist, remote_list, repo)
         extend_manifest_list(manifest_list, x, repo, local_filelist)
@@ -2539,7 +2537,7 @@ if __name__ == "__main__":
                         valid.append(num)
                     else:
                         invalid.append(num)
-                except:
+                except: # noqa: E722
                     invalid.append(x)
             if len(invalid) > 0:
                 sys.exit('ERROR: invalid repository numbers: %s' % ', '.join(str(x) for x in invalid))
@@ -2608,7 +2606,7 @@ if __name__ == "__main__":
                     regexp = build_lossless_cli_regexp(args)
                 except re.error:
                     sys.exit('ERROR: invalid regular expression')
-                test = lambda x: regexp.search(x) is not None
+                test = lambda x: regexp.search(x) is not None # noqa: E731
                 header = 'Matching files:'
                 empty = 'No matching files found'
             else: # missing-search
@@ -2616,7 +2614,7 @@ if __name__ == "__main__":
                 interpret_results_warning()
                 maybe_confirm_continue()
                 print('')
-                test = lambda x: slackroll_never_missing_re.search(x) is None and not os.path.exists(x) and not os.path.exists(old_file(x))
+                test = lambda x: slackroll_never_missing_re.search(x) is None and not os.path.exists(x) and not os.path.exists(old_file(x)) # noqa: E731
                 header = 'Missing files:'
                 empty = 'No missing files'
 
