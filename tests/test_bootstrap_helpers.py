@@ -1,7 +1,7 @@
 import pytest
 from slackroll import (
     handle_writable_dir,
-    standarize_locales,
+    standardize_locales,
     yield_slackroll_local_pkgs_dir,
 )
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from typing import Dict, List
 
 
-def test_standarize_locales_clears_known_locale_vars_and_sets_lang(request):
+def test_standardize_locales_clears_known_locale_vars_and_sets_lang(request):
     # type: (pytest.FixtureRequest) -> None
     environ = {
         "LANG": "en_US.UTF-8",
@@ -27,7 +27,7 @@ def test_standarize_locales_clears_known_locale_vars_and_sets_lang(request):
 
     tests.start_patch(request, "slackroll.os.environ", environ)
 
-    standarize_locales()
+    standardize_locales()
 
     assert environ == {
         "LANG": "C",
@@ -77,7 +77,7 @@ def test_yield_slackroll_local_pkgs_dir_exits_when_none_exist(request):
 
     pytest.raises(ValueError, advance)
 
-    exit_mock.assert_called_with("ERROR: unable to find local packages directgory")
+    exit_mock.assert_called_with("ERROR: unable to find local packages directory")
 
 
 def test_handle_writable_dir_creates_missing_directory(request):

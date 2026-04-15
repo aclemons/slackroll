@@ -6,7 +6,7 @@ been downloaded from the mirror. Usually, this operation is run after the
 "update" operation when there are available upgrades.
 
 The following paragraphs explain how slackroll manages the change log entries.
-This infomation is usually not important for an end user, but is provided here
+This information is usually not important for an end user, but is provided here
 for documentation purposes. Feel free not to read it.
 
 In detail, the "update" operation downloads change log entries by sets, one at

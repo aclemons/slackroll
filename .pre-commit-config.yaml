@@ -15,6 +15,11 @@ repos:
     hooks:
       - id: prettier
 
+  - repo: https://github.com/crate-ci/typos
+    rev: 02ea592e44b3a53c302f697cddca7641cd051c3d # frozen: v1.45.0
+    hooks:
+      - id: typos
+
   - repo: https://github.com/rhysd/actionlint
     rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
     hooks:

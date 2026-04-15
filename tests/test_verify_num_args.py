@@ -113,7 +113,10 @@ def test_word_to_word_list_distance_picks_closest_word():
 
 def test_words_to_words_distance_accounts_for_missing_words():
     # type: () -> None
-    assert words_to_words_distance(["set", "miror"], ("set", "mirror")) == 1
+    assert (
+        # spellchecker:ignore-next-line
+        words_to_words_distance(["set", "miror"], ("set", "mirror")) == 1
+    )
     assert words_to_words_distance(["remove"], ("remove", "repo")) == 1
 
 
@@ -137,12 +140,12 @@ def test_verify_operation_and_args_suggests_closest_operation(request):
         ValueError,
         verify_operation_and_args,
         {"install": 1, "info": 1, "set-mirror": 1},
-        "set-miror",
+        "set-miror",  # spellchecker:disable-line
         ["vim"],
     )
 
     assert fake_stderr.getvalue() == (
-        'ERROR: no operation called "set-miror"\n'
+        'ERROR: no operation called "set-miror"\n'  # spellchecker:disable-line
         'Use the "help" operation to get a list.\n'
         'Did you mean "set-mirror"?\n'
     )

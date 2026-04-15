@@ -24,7 +24,7 @@ you need. You would then need to download a relatively up-to-date MANIFEST.bz2
 file from the appropriate tree and run a command like bzgrep on them to find
 the file.
 
-update-manifest is the equivalent of downloading the latest MANIEST.bz2 file,
+update-manifest is the equivalent of downloading the latest MANIFEST.bz2 file,
 while manifest-search is equivalent to running the bzgrep commands on the
 downloaded files.
 

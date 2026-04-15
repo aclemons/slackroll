@@ -243,13 +243,13 @@ def yield_slackroll_local_pkgs_dir():
     for opt in slackroll_local_pkgs_dir_names:
         while os.path.isdir(opt):
             yield opt
-    sys.exit('ERROR: unable to find local packages directgory')
+    sys.exit('ERROR: unable to find local packages directory')
 
 if __name__ == "__main__":
     slackroll_local_pkgs_glob = os.path.join(next(yield_slackroll_local_pkgs_dir()), '*')
     slackroll_local_pkgs_dir = os.path.dirname(slackroll_local_pkgs_glob)
 
-def standarize_locales():
+def standardize_locales():
     # type: () -> None
     for varname in slackroll_locale_envvars:
         if varname in os.environ:
@@ -1587,10 +1587,10 @@ def print_list(the_list, header): # Print every list entry, sorted
         print('    %s' % entry)
     print('End of list')
 
-def print_list_or(the_list, header, message_on_emtpy): # Idem using interceptor and a message if empty list
+def print_list_or(the_list, header, message_on_empty): # Idem using interceptor and a message if empty list
     # type: (List[str], str, str) -> None
     if len(the_list) == 0:
-        print(message_on_emtpy)
+        print(message_on_empty)
         return
     interceptor = SlackrollOutputInterceptor()
     print_list(the_list, header)
@@ -1814,9 +1814,9 @@ def post_kernel_operation(): # Operations needed after kernel installation
 
     while True:
         # Add options to edit known bootloader configuration files
-        existant = [x for x in slackroll_bootloader_config_files if os.path.exists(x)]
-        options = [(str(x + 1), '%s %s' % (visual, existant[x])) for x in range(len(existant))]
-        actions = dict([(x, functools.partial(run_visual_on, existant[x])) for x in range(len(existant))])
+        existent = [x for x in slackroll_bootloader_config_files if os.path.exists(x)]
+        options = [(str(x + 1), '%s %s' % (visual, existent[x])) for x in range(len(existent))]
+        actions = dict([(x, functools.partial(run_visual_on, existent[x])) for x in range(len(existent))])
 
         # Add option to run lilo if present
         if os.path.exists(slackroll_lilo_path):
@@ -1939,7 +1939,7 @@ def name_search_operation(args, persistent_list):
     plist_subset = dict([(x, persistent_list[x]) for x in persistent_list if regexp.search(x) is not None])
     print_in_states_or(slackroll_all_states, plist_subset, 'Matching packages:', 'No matching packages found', True)
 
-def parse_pkg_arg(arg): # Returns tuple (Is full name?, Name, SlackwarePackage or None) -- auxiliar of parse_install_args()
+def parse_pkg_arg(arg): # Returns tuple (Is full name?, Name, SlackwarePackage or None) -- auxiliary of parse_install_args()
     # type: (str) -> Tuple[bool, str, Optional[SlackwarePackage]]
     if slackroll_pkg_archive_suffix.search(arg) is not None or os.path.sep in arg:
         try:
@@ -1950,7 +1950,7 @@ def parse_pkg_arg(arg): # Returns tuple (Is full name?, Name, SlackwarePackage o
             sys.exit('ERROR: unable to parse specific package version: %s' % arg)
     return (False, arg, None)
 
-def parse_install_args(args, local_list, remote_list, use_local_version, use_pasture, filter_dupes): # Return chosen_pkgs -- auxiliar of install_operations_family()
+def parse_install_args(args, local_list, remote_list, use_local_version, use_pasture, filter_dupes): # Return chosen_pkgs -- auxiliary of install_operations_family()
     # type: (List[str], Dict[str, List[SlackwarePackage]], Dict[str, List[SlackwarePackage]], bool, bool, bool) -> List[SlackwarePackage]
     chosen_pkgs = []
     for arg in args:
@@ -2362,7 +2362,7 @@ if __name__ == "__main__":
         if PY2:
             URLOpenerTarget._urlopener = SlackrollURLopener() # type: ignore
         socket.setdefaulttimeout(slackroll_socket_timeout)
-        standarize_locales()
+        standardize_locales()
 
         op_num_args = {    # Map of operations and their appropriate number of arguments.
             'add-repo':                 -1,
