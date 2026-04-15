@@ -204,6 +204,7 @@ slackroll_new_suffix = '.new'
 slackroll_etc_dir = '/etc'
 slackroll_pkg_archive_suffix = re.compile(r'\.t[bglx]z$')
 slackroll_default_pager = 'less'
+slackroll_fallback_pagers = ('more', 'cat')
 slackroll_default_visual = 'vim'
 slackroll_default_difftool = 'vimdiff'
 slackroll_gnupg_exec_names = ['gpg2', 'gpg']
@@ -632,11 +633,12 @@ def write_raw_output(output):
     numlines = output.count('\n'.encode('ascii'))
     if needs_pager(numlines):
         proc = call_pager()
-        assert proc.stdin is not None
-        proc.stdin.write(output)
-        proc.stdin.close()
-        proc.wait()
-        return
+        if proc is not None:
+            assert proc.stdin is not None
+            proc.stdin.write(output)
+            proc.stdin.close()
+            proc.wait()
+            return
 
     if PY2:
         sys.stdout.write(output)
@@ -677,9 +679,38 @@ def get_temp_dir(): # Temporary directory name
     # type: () -> str
     return get_env_or('TMPDIR', slackroll_default_temp_dir)
 
+def command_exists(command):
+    # type: (str) -> bool
+    program = command.split()[0]
+
+    if os.path.sep in program:
+        return os.path.isfile(program) and os.access(program, os.X_OK)
+
+    path = os.getenv('PATH')
+    if path is None:
+        return False
+
+    for entry in path.split(os.pathsep):
+        if not entry:
+            continue
+
+        candidate = os.path.join(entry, program)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return True
+
+    return False
+
 def get_pager():
-    # type: () -> str
-    return get_env_or('PAGER', slackroll_default_pager)
+    # type: () -> Optional[str]
+    configured = get_env_or('PAGER', slackroll_default_pager)
+    if command_exists(configured):
+        return configured
+
+    for pager in slackroll_fallback_pagers:
+        if command_exists(pager):
+            return pager
+
+    return None
 
 def get_visual():
     # type: () -> str
@@ -1070,9 +1101,11 @@ def get_pkg_cache_size(): # Return total bytes for files in cache
         sys.exit('ERROR: %s' % err)
 
 def call_pager(): # Call pager and return handler
-    # type: () -> subprocess.Popen[bytes]
+    # type: () -> Optional[subprocess.Popen[bytes]]
     try:
         pager = get_pager()
+        if pager is None:
+            return None
         pager_list = pager.split()
         proc = subprocess.Popen(pager_list, stdin=subprocess.PIPE)
         return proc

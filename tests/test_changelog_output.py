@@ -110,6 +110,22 @@ def test_write_raw_output_writes_bytes_to_pager(request):
     assert pager.stdin.output == [payload]
 
 
+def test_write_raw_output_falls_back_to_stdout_when_no_pager_exists(request):
+    # type: (pytest.FixtureRequest) -> None
+    fake_stdout = FakeStdout()
+    payload = tests.bytes_literal("raw bytes \xb3\xb7\xd8\xd9\n")
+
+    tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
+    tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
+    tests.start_patch(request, "slackroll.call_pager", lambda: None)
+    write_raw_output(payload)
+
+    if tests.PY2:
+        assert fake_stdout.output == [payload]
+    else:
+        assert fake_stdout.buffer.output == [payload]
+
+
 def test_lossless_text_to_bytes_handles_unicode_input():
     # type: () -> None
     payload = tests.decode_bytes_literal("raw bytes \xb3\xb7\xd8\xd9\n", "latin-1")
