@@ -3,8 +3,11 @@ from slackroll import (
     ChangeLog,
     ChangeLogEntry,
     SlackrollOutputInterceptor,
+    changelog_entries_operation,
     changelog_entries_to_bytes,
+    changelog_operation,
     full_changelog_operation,
+    list_changelog_operation,
     lossless_text_to_bytes,
     write_raw_output,
 )
@@ -184,3 +187,76 @@ def test_full_changelog_operation_empty_changelog_writes_empty_output(request):
         fake_stdout.output if tests.PY2 else fake_stdout.buffer.output
     )
     assert combined == tests.bytes_literal("")
+
+
+def test_changelog_operation_writes_last_batch_only(request):
+    # type: (pytest.FixtureRequest) -> None
+    cl = ChangeLog()
+    cl.add_entry(ChangeLogEntry("Mon Jan 01 00:00:00 UTC 2024", "  old entry\n"))
+    cl.start_new_batch()
+    cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  new entry\n"))
+
+    pager = FakePager()
+    tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
+    tests.start_patch(request, "slackroll.call_pager", lambda: pager)
+
+    changelog_operation(cl)
+
+    output = tests.bytes_literal("").join(pager.stdin.output)
+    assert tests.bytes_literal("new entry") in output
+    assert tests.bytes_literal("old entry") not in output
+
+
+def test_list_changelog_operation_lists_entries_newest_first(request):
+    # type: (pytest.FixtureRequest) -> None
+    cl = ChangeLog()
+    cl.add_entry(ChangeLogEntry("Mon Jan 01 00:00:00 UTC 2024", "  old entry\n"))
+    cl.start_new_batch()
+    cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  new entry\n"))
+
+    class FakeTtyStdout(FakeStdout):
+        def isatty(self):
+            # type: () -> bool
+            return True
+
+    fake_stdout = FakeTtyStdout()
+    pager = FakePager()
+    tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
+    tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
+    tests.start_patch(request, "slackroll.call_pager", lambda: pager)
+
+    list_changelog_operation(cl)
+
+    output = tests.bytes_literal("").join(pager.stdin.output).decode("latin-1")
+    pos_new = output.find("Tue Feb 01")
+    pos_old = output.find("Mon Jan 01")
+    assert pos_new != -1
+    assert pos_old != -1
+    assert pos_new < pos_old
+
+
+def test_changelog_entries_operation_writes_selected_entries(request):
+    # type: (pytest.FixtureRequest) -> None
+    cl = ChangeLog()
+    cl.add_entry(ChangeLogEntry("Mon Jan 01 00:00:00 UTC 2024", "  entry zero\n"))
+    cl.start_new_batch()
+    cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  entry one\n"))
+
+    pager = FakePager()
+    tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
+    tests.start_patch(request, "slackroll.call_pager", lambda: pager)
+
+    changelog_entries_operation(cl, ["0.0"])
+
+    output = tests.bytes_literal("").join(pager.stdin.output)
+    assert tests.bytes_literal("entry zero") in output
+    assert tests.bytes_literal("entry one") not in output
+
+
+def test_changelog_entries_operation_exits_on_invalid_entry(request):
+    # type: (pytest.FixtureRequest) -> None
+    cl = ChangeLog()
+    exit_mock = tests.start_patch(request, "sys.exit")
+    exit_mock.side_effect = ValueError("boom")
+
+    pytest.raises(ValueError, changelog_entries_operation, cl, ["99.99"])

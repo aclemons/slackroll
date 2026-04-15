@@ -632,6 +632,33 @@ def full_changelog_operation(cl):
     entries = concat([[x for x in cl.get_batch(y)] for y in range(cl.num_batches() - 1, -1, -1)])
     write_raw_output(changelog_entries_to_bytes(entries))
 
+def changelog_operation(cl):
+    # type: (ChangeLog) -> None
+    write_raw_output(changelog_entries_to_bytes(cl.last_batch()))
+
+def list_changelog_operation(cl):
+    # type: (ChangeLog) -> None
+    interceptor = SlackrollOutputInterceptor()
+    print('ChangeLog.txt entries:')
+    for idb in range(cl.num_batches() - 1, -1, -1):
+        batch = cl.get_batch(idb)
+        for ide in range(len(batch)):
+            print('    %-8s  %s' % ('%s.%s' % (idb, ide), batch[ide].timestamp))
+    print('End of list')
+    interceptor.stop()
+
+def changelog_entries_operation(cl, args):
+    # type: (ChangeLog, List[str]) -> None
+    entries = []
+    for code in args:
+        try:
+            (idbs, ides) = code.split('.')
+            (idb, ide) = (int(idbs), int(ides))
+            entries.append(cl.get_batch(idb)[ide])
+        except (IndexError, ValueError):
+            sys.exit('ERROR: invalid entry: %s' % code)
+    write_raw_output(changelog_entries_to_bytes(entries))
+
 def write_raw_output(output):
     # type: (bytes) -> None
     numlines = output.count('\n'.encode('ascii'))
@@ -2570,32 +2597,17 @@ if __name__ == "__main__":
 
         if operation == 'changelog':
             cl = get_changelog()
-            write_raw_output(changelog_entries_to_bytes(cl.last_batch()))
+            changelog_operation(cl)
             sys.exit()
 
         if operation == 'list-changelog':
-            interceptor = SlackrollOutputInterceptor()
             cl = get_changelog()
-            print('ChangeLog.txt entries:')
-            for idb in range(cl.num_batches() - 1, -1, -1):
-                batch = cl.get_batch(idb)
-                for ide in range(len(batch)):
-                    print('    %-8s  %s' % ('%s.%s' % (idb, ide), batch[ide].timestamp))
-            print('End of list')
-            interceptor.stop()
+            list_changelog_operation(cl)
             sys.exit()
 
         if operation == 'changelog-entries':
             cl = get_changelog()
-            entries = []
-            for code in args:
-                try:
-                    (idbs, ides) = code.split('.')
-                    (idb, ide) = (int(idbs), int(ides))
-                    entries.append(cl.get_batch(idb)[ide])
-                except (IndexError, ValueError):
-                    sys.exit('ERROR: invalid entry: %s' % code)
-            write_raw_output(changelog_entries_to_bytes(entries))
+            changelog_entries_operation(cl, args)
             sys.exit()
 
         if operation == 'full-changelog':
