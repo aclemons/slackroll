@@ -627,6 +627,11 @@ def changelog_entries_to_bytes(entries):
     text = slackroll_changelog_entry_separator.join('%s' % entry for entry in entries)
     return lossless_text_to_bytes(text)
 
+def full_changelog_operation(cl):
+    # type: (ChangeLog) -> None
+    entries = concat([[x for x in cl.get_batch(y)] for y in range(cl.num_batches() - 1, -1, -1)])
+    write_raw_output(changelog_entries_to_bytes(entries))
+
 def write_raw_output(output):
     # type: (bytes) -> None
     numlines = output.count('\n'.encode('ascii'))
@@ -2595,8 +2600,7 @@ if __name__ == "__main__":
 
         if operation == 'full-changelog':
             cl = get_changelog()
-            entries = concat([[x for x in cl.get_batch(y)] for y in range(cl.num_batches() - 1, -1, -1)]) # type: ignore
-            write_raw_output(changelog_entries_to_bytes(entries))
+            full_changelog_operation(cl)
             sys.exit()
 
         if operation in ['local-search', 'missing-search']:

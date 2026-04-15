@@ -1,8 +1,10 @@
 import pytest
 from slackroll import (
+    ChangeLog,
     ChangeLogEntry,
     SlackrollOutputInterceptor,
     changelog_entries_to_bytes,
+    full_changelog_operation,
     lossless_text_to_bytes,
     write_raw_output,
 )
@@ -138,3 +140,47 @@ def test_output_interceptor_writes_bytes_to_pager(request):
     interceptor.stop()
 
     assert pager.stdin.output == [tests.bytes_literal("intercepted \xb3\xb7\xd8\xd9\n")]
+
+
+def test_full_changelog_operation_writes_all_batches_in_reverse_order(request):
+    # type: (pytest.FixtureRequest) -> None
+    # Batch 0 is populated by the initial full download (no start_new_batch call).
+    # Subsequent incremental updates call start_new_batch() then add_entries().
+    cl = ChangeLog()
+    cl.add_entry(
+        ChangeLogEntry("Mon Jan 01 00:00:00 UTC 2024", "  first batch entry\n")
+    )
+    cl.start_new_batch()
+    cl.add_entry(
+        ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  second batch entry\n")
+    )
+
+    pager = FakePager()
+    tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
+    tests.start_patch(request, "slackroll.call_pager", lambda: pager)
+
+    full_changelog_operation(cl)
+
+    output = tests.bytes_literal("").join(pager.stdin.output)
+    # Most recent batch (batch 1) should appear before older batch (batch 0)
+    pos_second = output.find(tests.bytes_literal("second batch entry"))
+    pos_first = output.find(tests.bytes_literal("first batch entry"))
+    assert pos_second != -1
+    assert pos_first != -1
+    assert pos_second < pos_first
+
+
+def test_full_changelog_operation_empty_changelog_writes_empty_output(request):
+    # type: (pytest.FixtureRequest) -> None
+    cl = ChangeLog()
+
+    fake_stdout = FakeStdout()
+    tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
+    tests.start_patch(request, "slackroll.needs_pager", lambda _lines: False)
+
+    full_changelog_operation(cl)
+
+    combined = tests.bytes_literal("").join(
+        fake_stdout.output if tests.PY2 else fake_stdout.buffer.output
+    )
+    assert combined == tests.bytes_literal("")
