@@ -348,3 +348,25 @@ def test_search_manifest_database_writes_non_ascii_matches_as_bytes(request):
     assert len(written) == 1
     assert tests.bytes_literal("ca-certificates-1.0-noarch-1.txz") in written[0]
     assert tests.bytes_literal("\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny") in written[0]
+
+
+def test_build_lossless_cli_regexp_matches_non_utf8_locale_bytes(request):
+    # type: (pytest.FixtureRequest) -> None
+    if tests.PY2:
+        return
+
+    expected_name = tests.decode_bytes_literal(
+        "ca-certificates-F\xf5tan\xfas\xedtv\xe1ny",
+        "latin-1",
+    )
+
+    def fake_fsencode(text):
+        # type: (str) -> bytes
+        assert text == "Főtanúsítvány"
+        return text.encode("iso-8859-2")
+
+    tests.start_patch(request, "slackroll.os.fsencode", fake_fsencode)
+
+    regexp = build_lossless_cli_regexp(["Főtanúsítvány"])
+
+    assert regexp.search(expected_name) is not None

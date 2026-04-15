@@ -1925,6 +1925,16 @@ def search_manifest_database(regexp):
         lines.append('End of list')
         write_raw_output(texts_to_printed_bytes(lines))
 
+def name_search_operation(args, persistent_list):
+    # type: (List[str], Dict[str, int]) -> None
+    try:
+        regexp = build_lossless_cli_regexp(args)
+    except re.error:
+        sys.exit('ERROR: invalid regular expression')
+
+    plist_subset = dict([(x, persistent_list[x]) for x in persistent_list if regexp.search(x) is not None])
+    print_in_states_or(slackroll_all_states, plist_subset, 'Matching packages:', 'No matching packages found', True)
+
 def parse_pkg_arg(arg): # Returns tuple (Is full name?, Name, SlackwarePackage or None) -- auxiliar of parse_install_args()
     # type: (str) -> Tuple[bool, str, Optional[SlackwarePackage]]
     if slackroll_pkg_archive_suffix.search(arg) is not None or os.path.sep in arg:
@@ -3148,14 +3158,7 @@ if __name__ == "__main__":
             sys.exit()
 
         if operation == 'name-search':
-            all_regexes = '|'.join('(?:%s)' % x for x in args)
-            try:
-                regexp = re.compile(all_regexes)
-            except re.error:
-                sys.exit('ERROR: invalid regular expression')
-
-            plist_subset = dict([(x, persistent_list[x]) for x in persistent_list if regexp.search(x) is not None])
-            print_in_states_or(slackroll_all_states, plist_subset, 'Matching packages:', 'No matching packages found', True)
+            name_search_operation(args, persistent_list)
             sys.exit()
 
         if operation == 'path-search':
