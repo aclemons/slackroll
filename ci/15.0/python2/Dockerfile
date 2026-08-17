@@ -16,4 +16,4 @@ RUN export TERSE=0 && \
     rm -rf /var/cache/packages/* && rm -rf /var/lib/slackpkg/*
 
 # setup running tests
-RUN pip2 --no-cache-dir install mock==3.0.5 pytest==4.6.11 pytest_cov==2.12.1 && rm -rf /root/.cache
+RUN tpip2 --no-cache-dir install mock==3.0.5 pytest==4.6.11 pytest_cov==2.12.1 && rm -rf /root/.cache

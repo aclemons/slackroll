@@ -16,7 +16,7 @@ RUN export TERSE=0 && \
     rm -rf /var/cache/packages/* && rm -rf /var/lib/slackpkg/*
 
 # renovate: datasource=pypi depName=pytest
-ENV PYTEST_VERSION=9.1.1
+ENV PYTEST_VERSION=8.4.2
 # renovate: datasource=pypi depName=pytest_cov
 ENV PYTEST_COV_VERSION=7.1.0
 # renovate: datasource=pypi depName=toml
