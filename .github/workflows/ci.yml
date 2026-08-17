@@ -114,7 +114,7 @@ jobs:
       # renovate: datasource=github-releases depName=astral-sh/uv
       UV_VERSION: "0.12.5"
       # renovate: datasource=github-releases depName=j178/prek
-      PREK_VERSION: "0.4.11"
+      PREK_VERSION: "0.4.14"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
