@@ -17,7 +17,7 @@ RUN export TERSE=0 && \
 
 
 # use modern host to download, since we cannot use https to talk to these hosts on 13.37
-FROM alpine:3.23.5@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40 AS downloader
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS downloader
 
 WORKDIR /tmp
 
