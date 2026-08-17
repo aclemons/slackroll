@@ -11,7 +11,7 @@ repos:
       - id: check-added-large-files
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: 515f543f5718ebfd6ce22e16708bb32c68ff96e1 # frozen: v3.8.3
+    rev: 0ee178619d696787ca73d210cc191d720868c631 # frozen: v3.9.6
     hooks:
       - id: prettier
 
