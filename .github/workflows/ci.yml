@@ -79,7 +79,7 @@ jobs:
     name: Python ${{ matrix.python-version }}
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.11.13"
+      UV_VERSION: "0.12.5"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,7 +103,7 @@ jobs:
       # renovate: datasource=pypi depName=pre-commit
       PRE_COMMIT_VERSION: "4.6.2"
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.11.13"
+      UV_VERSION: "0.12.5"
       # renovate: datasource=python-version depName=python
       PRE_COMMIT_PYTHON_VERSION: "3.14.7"
     steps:
