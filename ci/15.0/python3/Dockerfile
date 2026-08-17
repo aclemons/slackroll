@@ -19,7 +19,7 @@ RUN export TERSE=0 && \
 ENV PYTEST_VERSION=8.4.2
 # renovate: datasource=pypi depName=pytest_cov
 ENV PYTEST_COV_VERSION=7.1.0
-# renovate: datasource=pypi depName=pytest_cov
+# renovate: datasource=pypi depName=toml
 ENV TOML_VERSION=0.10.2
 
 # setup running tests
