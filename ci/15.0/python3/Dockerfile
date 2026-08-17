@@ -20,7 +20,7 @@ ENV PYTEST_VERSION=8.4.2
 # renovate: datasource=pypi depName=pytest_cov
 ENV PYTEST_COV_VERSION=7.1.0
 # renovate: datasource=pypi depName=pytest_cov
-ENV TOML_VERSION=0.10.2
+ENV TOML_VERSION=5.0.0
 
 # setup running tests
 RUN pip3 --no-cache-dir install "pytest==$PYTEST_VERSION" "pytest_cov==$PYTEST_COV_VERSION" "toml==$TOML_VERSION" && rm -rf /root/.cache
