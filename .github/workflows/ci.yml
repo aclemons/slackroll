@@ -135,7 +135,7 @@ jobs:
       pull-requests: write # Required for MishaKav/pytest-coverage-comment to post/update PR comments.
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.12.5"
+      UV_VERSION: "0.12.10"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -190,7 +190,7 @@ jobs:
       contents: read
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.12.5"
+      UV_VERSION: "0.12.10"
       PYTHON_VERSION: "3.12.13"
     steps:
       - name: Check out repository
@@ -220,7 +220,7 @@ jobs:
       contents: read
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.12.5"
+      UV_VERSION: "0.12.10"
       # renovate: datasource=github-releases depName=j178/prek
       PREK_VERSION: "0.4.14"
     steps:
