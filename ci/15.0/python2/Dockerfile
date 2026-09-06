@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.26.0@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 # check=error=true
 
-FROM aclemons/slackware:15.0@sha256:35ab2753646cc08476f550b3b4a0221de0d34ed23e69f2a6a3152074ebe9243d AS base
+FROM aclemons/slackware:15.0@sha256:6e514be2e694fca9ffc749396b872d55cbf890e5ec57dfddcab0cc47d45f30d6 AS base
 
 # install python2
 RUN export TERSE=0 && \
