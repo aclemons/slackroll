@@ -25,7 +25,7 @@ jobs:
       contents: read
     env:
       # renovate: datasource=github-releases depName=docker/buildx
-      BUILDX_VERSION: "v0.36.1"
+      BUILDX_VERSION: "v0.37.0"
     strategy:
       fail-fast: false
       matrix:
