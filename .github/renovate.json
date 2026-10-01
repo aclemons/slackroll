@@ -17,6 +17,10 @@
   "timezone": "Asia/Tokyo",
   "packageRules": [
     {
+      "matchFileNames": [".python-version"],
+      "enabled": false
+    },
+    {
       "matchDepNames": ["aclemons/slackware"],
       "matchUpdateTypes": ["major", "minor", "patch", "pin", "pinDigest"],
       "enabled": false
