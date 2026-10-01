@@ -25,7 +25,7 @@ jobs:
       contents: read
     env:
       # renovate: datasource=github-releases depName=docker/buildx
-      BUILDX_VERSION: "v0.36.1"
+      BUILDX_VERSION: "v0.37.2"
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +70,7 @@ jobs:
           printf "BUILDKIT_IMAGE=%s\n" "$BUILDKIT_IMAGE" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           version: ${{ env.BUILDX_VERSION }}
           cache-binary: false
@@ -135,7 +135,7 @@ jobs:
       pull-requests: write # Required for MishaKav/pytest-coverage-comment to post/update PR comments.
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.12.5"
+      UV_VERSION: "0.12.23"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -156,7 +156,7 @@ jobs:
           path: coverage/python3
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -178,7 +178,7 @@ jobs:
           uv run coverage xml --rcfile=.coveragerc.ci -o coverage.xml
 
       - name: Coverage
-        uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
+        uses: MishaKav/pytest-coverage-comment@ce64cfb4332195faa36733a0364dda8849109f70 # v1.11.2
         with:
           pytest-xml-coverage-path: ./coverage.xml
           default-branch: master
@@ -190,7 +190,7 @@ jobs:
       contents: read
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.12.5"
+      UV_VERSION: "0.12.23"
       PYTHON_VERSION: "3.12.13"
     steps:
       - name: Check out repository
@@ -204,7 +204,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -220,7 +220,7 @@ jobs:
       contents: read
     env:
       # renovate: datasource=github-releases depName=astral-sh/uv
-      UV_VERSION: "0.12.5"
+      UV_VERSION: "0.12.23"
       # renovate: datasource=github-releases depName=j178/prek
       PREK_VERSION: "0.4.14"
     steps:
@@ -235,7 +235,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
