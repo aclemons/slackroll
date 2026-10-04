@@ -178,7 +178,7 @@ jobs:
           uv run coverage xml --rcfile=.coveragerc.ci -o coverage.xml
 
       - name: Coverage
-        uses: MishaKav/pytest-coverage-comment@ce64cfb4332195faa36733a0364dda8849109f70 # v1.11.2
+        uses: MishaKav/pytest-coverage-comment@9ee59af31bd7bcada1cc496f086b407122602dbd # v1.12.3
         with:
           pytest-xml-coverage-path: ./coverage.xml
           default-branch: master
