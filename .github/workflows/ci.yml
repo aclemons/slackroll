@@ -20,7 +20,7 @@ env:
 jobs:
   test:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     env:
@@ -184,7 +184,7 @@ jobs:
           default-branch: master
 
   test-current:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Python 3.12 (-current)
     permissions:
       contents: read
@@ -215,7 +215,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     env:
