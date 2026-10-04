@@ -10,18 +10,10 @@ from slackroll import (
 
 import tests
 
-try:
-    from typing import TYPE_CHECKING
-except ImportError:
-    TYPE_CHECKING = False
-
-if TYPE_CHECKING:
-    pass
-
 
 def test_from_states_to_state_updates_allowed_packages(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = tests.PersistentList({"vim": slackroll_state_new})
 
@@ -34,12 +26,12 @@ def test_from_states_to_state_updates_allowed_packages(request):
 
     assert persistent_list == {"vim": slackroll_state_notinstalled}
     assert persistent_list.sync_calls == 1
-    assert fake_stdout.getvalue() == "Marking packages as not-installed...\n"
+    assert tests.mock_output(fake_stdout) == "Marking packages as not-installed...\n"
 
 
 def test_from_states_to_state_keeps_disallowed_states_and_warns(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = tests.PersistentList({"vim": slackroll_state_installed})
 
@@ -52,7 +44,7 @@ def test_from_states_to_state_keeps_disallowed_states_and_warns(request):
 
     assert persistent_list == {"vim": slackroll_state_installed}
     assert persistent_list.sync_calls == 1
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Marking packages as not-installed...\n"
         "vim: cannot change state from installed to not-installed\n"
     )
@@ -60,7 +52,7 @@ def test_from_states_to_state_keeps_disallowed_states_and_warns(request):
 
 def test_from_states_to_state_errors_for_unknown_packages(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stderr = tests.FakeStream()
+    fake_stderr = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     tests.start_patch(request, "slackroll.sys.stderr", fake_stderr)
     exit_mock.side_effect = ValueError("boom")
@@ -77,7 +69,7 @@ def test_from_states_to_state_errors_for_unknown_packages(request):
 
     assert persistent_list == {"vim": slackroll_state_installed}
     assert persistent_list.sync_calls == 0
-    assert fake_stderr.getvalue() == (
+    assert tests.mock_output(fake_stderr) == (
         "WARNING: ghost-1.0-x86_64-1.txz looks like an unexpected full version\n"
         "ERROR: The following packages are unknown:\n"
         "ERROR:    ghost-1.0-x86_64-1.txz\n"

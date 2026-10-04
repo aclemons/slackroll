@@ -18,15 +18,10 @@ else:
     )
 
 
-class FakeStdout(tests.FakeStream):
-    def isatty(self):
-        # type: () -> bool
-        return False
-
-
 def test_name_search_operation_matches_multibyte_package_names(request):
     # type: (object) -> None
-    fake_stdout = FakeStdout()
+    fake_stdout = tests.Mock()
+    fake_stdout.isatty.return_value = False
     persistent_list = {
         multibyte_package_name: slackroll_state_installed,
         "bash": slackroll_state_installed,
@@ -36,7 +31,7 @@ def test_name_search_operation_matches_multibyte_package_names(request):
 
     name_search_operation(["Főtanúsítvány"], persistent_list)
 
-    output = fake_stdout.getvalue()
+    output = tests.mock_output(fake_stdout)
     assert "Matching packages:\n" in output
     assert multibyte_package_name in output
     assert "bash" not in output

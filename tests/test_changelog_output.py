@@ -14,15 +14,6 @@ from slackroll import (
 
 import tests
 
-try:
-    from typing import TYPE_CHECKING
-except ImportError:
-    TYPE_CHECKING = False
-
-if TYPE_CHECKING:
-    pass
-
-
 if tests.PY2:
     non_utf8_latin1 = "\xb3\xb7\xd8\xd9"
 else:
@@ -43,7 +34,8 @@ def test_changelog_entries_to_bytes_preserves_non_utf8_bytes():
 
 def test_write_raw_output_writes_bytes_to_stdout(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStdout()
+    fake_stdout = tests.Mock()
+    fake_stdout.buffer = tests.Mock()
     payload = tests.bytes_literal("raw bytes \xb3\xb7\xd8\xd9\n")
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
@@ -51,21 +43,22 @@ def test_write_raw_output_writes_bytes_to_stdout(request):
     write_raw_output(payload)
 
     if tests.PY2:
-        assert fake_stdout.output == [payload]
+        assert tests.mock_write_args(fake_stdout.write) == [payload]
     else:
-        assert fake_stdout.buffer.output == [payload]
+        assert tests.mock_write_args(fake_stdout.buffer.write) == [payload]
 
 
 def test_write_raw_output_writes_bytes_to_pager(request):
     # type: (pytest.FixtureRequest) -> None
-    pager = tests.FakePager()
+    pager = tests.Mock()
+    pager.stdin = tests.Mock()
     payload = tests.bytes_literal("raw bytes \xb3\xb7\xd8\xd9\n")
 
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
     write_raw_output(payload)
 
-    assert pager.stdin.output == [payload]
+    assert tests.mock_write_args(pager.stdin.write) == [payload]
 
 
 def test_lossless_text_to_bytes_handles_unicode_input():
@@ -79,8 +72,11 @@ def test_lossless_text_to_bytes_handles_unicode_input():
 
 def test_output_interceptor_writes_bytes_to_pager(request):
     # type: (pytest.FixtureRequest) -> None
-    pager = tests.FakePager()
-    fake_stdout = tests.FakeTtyStdout()
+    pager = tests.Mock()
+    pager.stdin = tests.Mock()
+    fake_stdout = tests.Mock()
+    fake_stdout.isatty.return_value = True
+    fake_stdout.buffer = tests.Mock()
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
@@ -89,7 +85,9 @@ def test_output_interceptor_writes_bytes_to_pager(request):
     print("intercepted %s" % non_utf8_latin1)
     interceptor.stop()
 
-    assert pager.stdin.output == [tests.bytes_literal("intercepted \xb3\xb7\xd8\xd9\n")]
+    assert tests.mock_write_args(pager.stdin.write) == [
+        tests.bytes_literal("intercepted \xb3\xb7\xd8\xd9\n")
+    ]
 
 
 def test_full_changelog_operation_writes_all_batches_in_reverse_order(request):
@@ -105,13 +103,14 @@ def test_full_changelog_operation_writes_all_batches_in_reverse_order(request):
         ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  second batch entry\n")
     )
 
-    pager = tests.FakePager()
+    pager = tests.Mock()
+    pager.stdin = tests.Mock()
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 
     full_changelog_operation(cl)
 
-    output = tests.bytes_literal("").join(pager.stdin.output)
+    output = tests.bytes_literal("").join(tests.mock_write_args(pager.stdin.write))
     # Most recent batch (batch 1) should appear before older batch (batch 0)
     pos_second = output.find(tests.bytes_literal("second batch entry"))
     pos_first = output.find(tests.bytes_literal("first batch entry"))
@@ -124,15 +123,15 @@ def test_full_changelog_operation_empty_changelog_writes_empty_output(request):
     # type: (pytest.FixtureRequest) -> None
     cl = ChangeLog()
 
-    fake_stdout = tests.FakeStdout()
+    fake_stdout = tests.Mock()
+    fake_stdout.buffer = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: False)
 
     full_changelog_operation(cl)
 
-    combined = tests.bytes_literal("").join(
-        fake_stdout.output if tests.PY2 else fake_stdout.buffer.output
-    )
+    output_stream = fake_stdout.write if tests.PY2 else fake_stdout.buffer.write
+    combined = tests.bytes_literal("").join(tests.mock_write_args(output_stream))
     assert combined == tests.bytes_literal("")
 
 
@@ -143,13 +142,14 @@ def test_changelog_operation_writes_last_batch_only(request):
     cl.start_new_batch()
     cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  new entry\n"))
 
-    pager = tests.FakePager()
+    pager = tests.Mock()
+    pager.stdin = tests.Mock()
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 
     changelog_operation(cl)
 
-    output = tests.bytes_literal("").join(pager.stdin.output)
+    output = tests.bytes_literal("").join(tests.mock_write_args(pager.stdin.write))
     assert tests.bytes_literal("new entry") in output
     assert tests.bytes_literal("old entry") not in output
 
@@ -161,15 +161,22 @@ def test_list_changelog_operation_lists_entries_newest_first(request):
     cl.start_new_batch()
     cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  new entry\n"))
 
-    fake_stdout = tests.FakeTtyStdout()
-    pager = tests.FakePager()
+    fake_stdout = tests.Mock()
+    fake_stdout.isatty.return_value = True
+    fake_stdout.buffer = tests.Mock()
+    pager = tests.Mock()
+    pager.stdin = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 
     list_changelog_operation(cl)
 
-    output = tests.bytes_literal("").join(pager.stdin.output).decode("latin-1")
+    output = (
+        tests.bytes_literal("")
+        .join(tests.mock_write_args(pager.stdin.write))
+        .decode("latin-1")
+    )
     pos_new = output.find("Tue Feb 01")
     pos_old = output.find("Mon Jan 01")
     assert pos_new != -1
@@ -184,13 +191,14 @@ def test_changelog_entries_operation_writes_selected_entries(request):
     cl.start_new_batch()
     cl.add_entry(ChangeLogEntry("Tue Feb 01 00:00:00 UTC 2025", "  entry one\n"))
 
-    pager = tests.FakePager()
+    pager = tests.Mock()
+    pager.stdin = tests.Mock()
     tests.start_patch(request, "slackroll.needs_pager", lambda _lines: True)
     tests.start_patch(request, "slackroll.call_pager", lambda: pager)
 
     changelog_entries_operation(cl, ["0.0"])
 
-    output = tests.bytes_literal("").join(pager.stdin.output)
+    output = tests.bytes_literal("").join(tests.mock_write_args(pager.stdin.write))
     assert tests.bytes_literal("entry zero") in output
     assert tests.bytes_literal("entry one") not in output
 

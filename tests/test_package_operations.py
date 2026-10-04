@@ -137,7 +137,7 @@ def test_download_verify_uses_repo_url_and_cleans_up_on_failure(request):
 
 def test_upgrade_or_install_passes_reinstall_flag(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     calls = []  # type: List[List[str]]
 
     def fake_call(args):
@@ -158,7 +158,7 @@ def test_upgrade_or_install_passes_reinstall_flag(request):
             "/tmp/slackroll/vim-9.1-x86_64-1.txz",
         ]
     ]
-    assert fake_stdout.getvalue() == "Installing vim-9.1-x86_64-1.txz ...\n"
+    assert tests.mock_output(fake_stdout) == "Installing vim-9.1-x86_64-1.txz ...\n"
 
 
 def test_remove_pkgs_runs_removepkg_and_dotnew_cleanup(request):
@@ -231,7 +231,7 @@ def test_yield_gnupg_exec_name_skips_oserror_and_uses_first_working_binary(reque
 
 def test_import_key_exits_when_gnupg_returns_error(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     exit_mock.side_effect = ValueError("boom")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
@@ -242,14 +242,14 @@ def test_import_key_exits_when_gnupg_returns_error(request):
 
     pytest.raises(ValueError, import_key, "/tmp/key.asc")
 
-    assert fake_stdout.getvalue() == "Importing keys from /tmp/key.asc ...\n"
+    assert tests.mock_output(fake_stdout) == "Importing keys from /tmp/key.asc ...\n"
     exit_mock.assert_called_with("ERROR: GnuPG exited with error when importing key")
 
 
 def test_verify_signature_raises_on_nonzero_status(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
-    fake_stderr = tests.FakeStream()
+    fake_stdout = tests.Mock()
+    fake_stderr = tests.Mock()
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.sys.stderr", fake_stderr)
@@ -264,17 +264,18 @@ def test_verify_signature_raises_on_nonzero_status(request):
 
     assert str(err.value) == "GnuPG exited with status code 2"
     assert (
-        fake_stdout.getvalue() == "Verifying signature vim-9.1-x86_64-1.txz.asc ... \n"
+        tests.mock_output(fake_stdout)
+        == "Verifying signature vim-9.1-x86_64-1.txz.asc ... \n"
     )
-    assert fake_stderr.getvalue() == (
+    assert tests.mock_output(fake_stderr) == (
         "ERROR: signature verification failed: /tmp/slackroll/vim-9.1-x86_64-1.txz.asc\n"
     )
 
 
 def test_verify_signature_raises_when_subprocess_errors(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
-    fake_stderr = tests.FakeStream()
+    fake_stdout = tests.Mock()
+    fake_stderr = tests.Mock()
 
     def raise_oserror(_args, stdout=None, stderr=None):
         # type: (List[str], object, object) -> int
@@ -288,13 +289,13 @@ def test_verify_signature_raises_when_subprocess_errors(request):
     err = pytest.raises(SlackrollError, verify_signature, "/tmp/pkg.asc")
 
     assert str(err.value) == "no gpg"
-    assert fake_stdout.getvalue() == "Verifying signature pkg.asc ... \n"
-    assert fake_stderr.getvalue() == "ERROR: no gpg\n"
+    assert tests.mock_output(fake_stdout) == "Verifying signature pkg.asc ... \n"
+    assert tests.mock_output(fake_stderr) == "ERROR: no gpg\n"
 
 
 def test_install_with_installpkg_exits_on_failure(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     exit_mock.side_effect = ValueError("boom")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
@@ -302,13 +303,13 @@ def test_install_with_installpkg_exits_on_failure(request):
 
     pytest.raises(ValueError, install_with_installpkg, "/tmp/pkg.txz")
 
-    assert fake_stdout.getvalue() == "Installing pkg.txz ...\n"
+    assert tests.mock_output(fake_stdout) == "Installing pkg.txz ...\n"
     exit_mock.assert_called_with("ERROR: installation failed: /tmp/pkg.txz")
 
 
 def test_replace_pkg_exits_on_failure(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     exit_mock.side_effect = ValueError("boom")
     calls = []  # type: List[List[str]]
@@ -324,13 +325,13 @@ def test_replace_pkg_exits_on_failure(request):
     pytest.raises(ValueError, replace_pkg, "/installed/pkg.txz", "/tmp/newpkg.txz")
 
     assert calls == [["/sbin/upgradepkg", "/installed/pkg.txz%/tmp/newpkg.txz"]]
-    assert fake_stdout.getvalue() == "Installing newpkg.txz ...\n"
+    assert tests.mock_output(fake_stdout) == "Installing newpkg.txz ...\n"
     exit_mock.assert_called_with("ERROR: installation failed: /tmp/newpkg.txz")
 
 
 def test_remove_pkg_exits_on_failure(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     exit_mock.side_effect = ValueError("boom")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
@@ -338,5 +339,5 @@ def test_remove_pkg_exits_on_failure(request):
 
     pytest.raises(ValueError, remove_pkg, "vim-9.1-x86_64-1")
 
-    assert fake_stdout.getvalue() == "Removing vim-9.1-x86_64-1 ...\n"
+    assert tests.mock_output(fake_stdout) == "Removing vim-9.1-x86_64-1 ...\n"
     exit_mock.assert_called_with("ERROR: removal failed: vim-9.1-x86_64-1")

@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import shutil
-from tempfile import mkdtemp
 
 import pytest
 from slackroll import (
@@ -46,19 +44,6 @@ else:
     non_utf8_latin1 = tests.decode_bytes_literal("\xb3\xb7\xd8\xd9", "latin-1")
 
 
-@pytest.fixture  # type: ignore
-def temp_dir(request):
-    # type: (pytest.FixtureRequest) -> str
-    dir = mkdtemp()
-
-    def teardown():
-        # type: () -> None
-        shutil.rmtree(dir)
-
-    request.addfinalizer(teardown)
-    return dir
-
-
 def assert_text_preserves_bytes(text, expected_bytes):
     # type: (str, bytes) -> None
     if tests.PY2:
@@ -66,16 +51,6 @@ def assert_text_preserves_bytes(text, expected_bytes):
         return
 
     assert expected_bytes in text.encode("latin-1")
-
-
-class FakePackage(object):
-    def __init__(self, fullname):
-        # type: (str) -> None
-        self.fullname = fullname
-
-    def base_url(self, mirror):
-        # type: (str) -> str
-        return mirror
 
 
 def test_read_lossless_text_preserves_non_utf8_bytes(temp_dir):
@@ -101,7 +76,13 @@ def test_get_remote_info_preserves_non_utf8_bytes(temp_dir, request):
     payload = tests.bytes_literal(
         "PACKAGE NAME: example\nPACKAGE LOCATION: ./patches\nURL: https://example.\xb3\xb7\xd8\xd9/\n"
     )
-    package = cast(SlackwarePackage, FakePackage("example-1.0-noarch-1.txz"))
+    package = cast(
+        SlackwarePackage,
+        tests.Mock(
+            fullname="example-1.0-noarch-1.txz",
+            base_url=tests.Mock(side_effect=lambda mirror: mirror),
+        ),
+    )
 
     def fake_download_or_exit(_mirror, filename, destination):
         # type: (str, str, str) -> None
@@ -390,7 +371,7 @@ def test_build_lossless_cli_regexp_matches_non_utf8_locale_bytes(request):
 
 def test_search_manifest_database_prints_no_matching_files(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     regexp = build_lossless_cli_regexp(["missing"])
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
@@ -402,4 +383,4 @@ def test_search_manifest_database_prints_no_matching_files(request):
 
     search_manifest_database(regexp)
 
-    assert fake_stdout.getvalue() == "No matching files\n"
+    assert tests.mock_output(fake_stdout) == "No matching files\n"

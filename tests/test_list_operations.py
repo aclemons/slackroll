@@ -13,7 +13,7 @@ except ImportError:
     TYPE_CHECKING = False
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List
+    from typing import Dict, List
 
     from slackroll import SlackwarePackage
 
@@ -25,33 +25,22 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-def _local(pkgs):
-    # type: (List[SlackwarePackage]) -> Dict[str, List[SlackwarePackage]]
-    result = {}  # type: Dict[str, List[SlackwarePackage]]
-    for p in pkgs:
-        result.setdefault(p.name, []).append(p)
-    return result
-
-
-def _remote(pkgs):
-    # type: (List[SlackwarePackage]) -> Dict[str, List[SlackwarePackage]]
-    result = {}  # type: Dict[str, List[SlackwarePackage]]
-    for p in pkgs:
-        result.setdefault(p.name, []).append(p)
-    return result
-
-
 def _capture_stdout(request, fn, *args):
     # type: (pytest.FixtureRequest, object, *object) -> str
-    fake_stdout = tests.FakeTtyStdout()
+    fake_stdout = tests.Mock()
+    fake_stdout.isatty.return_value = True
+    fake_stdout.buffer = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.needs_pager", lambda _: False)
     fn(*args)  # type: ignore
-    if tests.PY2:
-        return "".join(fake_stdout.output)
-    return "".join(fake_stdout.output) + tests.bytes_literal("").join(
-        fake_stdout.buffer.output
-    ).decode("latin-1")
+    output = tests.mock_output(fake_stdout)
+    if not tests.PY2:
+        output += (
+            tests.bytes_literal("")
+            .join(tests.mock_write_args(fake_stdout.buffer.write))
+            .decode("latin-1")
+        )
+    return output
 
 
 def _capture_list_transient(request, local_list, remote_list, persistent_list):
@@ -88,8 +77,8 @@ def test_list_transient_prints_no_transient_when_empty(request):
 def test_list_transient_shows_new_pkg(request):
     # type: (pytest.FixtureRequest) -> None
     pkg = tests.build_pkg("bash", "5.2", "./slackware64/a")
-    local_list = _local([])
-    remote_list = _remote([pkg])
+    local_list = tests.package_map([])
+    remote_list = tests.package_map([pkg])
     plist = tests.PersistentList({"bash": 0})  # state_new = 0
     output = _capture_list_transient(request, local_list, remote_list, plist)
     assert "bash" in output
@@ -100,8 +89,8 @@ def test_list_transient_shows_outdated_pkg(request):
     # type: (pytest.FixtureRequest) -> None
     local_pkg = tests.build_pkg("vim", "8.2", "./slackware64/ap")
     remote_pkg = tests.build_pkg("vim", "9.1", "./slackware64/ap")
-    local_list = _local([local_pkg])
-    remote_list = _remote([remote_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([remote_pkg])
     plist = tests.PersistentList({"vim": 6})  # state_outdated = 6
     output = _capture_list_transient(request, local_list, remote_list, plist)
     assert "vim" in output
@@ -111,8 +100,8 @@ def test_list_transient_shows_outdated_pkg(request):
 def test_list_transient_shows_unavailable_pkg(request):
     # type: (pytest.FixtureRequest) -> None
     local_pkg = tests.build_pkg("mypkg", "1.0", "./slackware64/n")
-    local_list = _local([local_pkg])
-    remote_list = _remote([])  # type: Dict[str, List[SlackwarePackage]]
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([])  # type: Dict[str, List[SlackwarePackage]]
     plist = tests.PersistentList({"mypkg": 1})  # state_unavailable = 1
     output = _capture_list_transient(request, local_list, remote_list, plist)
     assert "mypkg" in output
@@ -123,8 +112,8 @@ def test_list_transient_non_transient_pkg_not_shown(request):
     # type: (pytest.FixtureRequest) -> None
     local_pkg = tests.build_pkg("gcc", "12.0", "./slackware64/d")
     new_pkg = tests.build_pkg("newpkg", "1.0", "./slackware64/ap")
-    local_list = _local([local_pkg])
-    remote_list = _remote([local_pkg, new_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([local_pkg, new_pkg])
     plist = tests.PersistentList({"gcc": 2, "newpkg": 0})  # gcc=installed, newpkg=new
     output = _capture_list_transient(request, local_list, remote_list, plist)
     assert "gcc" not in output
@@ -136,8 +125,8 @@ def test_list_transient_prioritized_pkg_sorts_first(request):
     # 'aaa_glibc-solibs' is in slackroll_prioritized_pkgs, so it should appear before 'zzz-pkg'
     pkg_prio = tests.build_pkg("aaa_glibc-solibs", "2.37", "./slackware64/a")
     pkg_late = tests.build_pkg("zzz-pkg", "1.0", "./slackware64/ap")
-    local_list = _local([])
-    remote_list = _remote([pkg_prio, pkg_late])
+    local_list = tests.package_map([])
+    remote_list = tests.package_map([pkg_prio, pkg_late])
     plist = tests.PersistentList({"aaa_glibc-solibs": 0, "zzz-pkg": 0})
     output = _capture_list_transient(request, local_list, remote_list, plist)
     pos_prio = output.find("aaa_glibc-solibs")
@@ -150,8 +139,8 @@ def test_list_transient_prioritized_pkg_sorts_first(request):
 def test_list_transient_new_pkg_shows_remote_path(request):
     # type: (pytest.FixtureRequest) -> None
     pkg = tests.build_pkg("bash", "5.2", "./slackware64/a")
-    local_list = _local([])
-    remote_list = _remote([pkg])
+    local_list = tests.package_map([])
+    remote_list = tests.package_map([pkg])
     plist = tests.PersistentList({"bash": 0})
     output = _capture_list_transient(request, local_list, remote_list, plist)
     # tr_pkg_detail returns paths for new packages
@@ -162,8 +151,8 @@ def test_list_transient_non_new_pkg_shows_no_path(request):
     # type: (pytest.FixtureRequest) -> None
     local_pkg = tests.build_pkg("vim", "8.2", "./slackware64/ap")
     remote_pkg = tests.build_pkg("vim", "9.1", "./slackware64/ap")
-    local_list = _local([local_pkg])
-    remote_list = _remote([remote_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([remote_pkg])
     plist = tests.PersistentList({"vim": 6})  # outdated — tr_pkg_detail returns ''
     output = _capture_list_transient(request, local_list, remote_list, plist)
     assert "slackware64/ap" not in output
@@ -192,8 +181,8 @@ def test_list_upgrades_shows_outdated_pkg(request):
     # type: (pytest.FixtureRequest) -> None
     local_pkg = tests.build_pkg("vim", "8.2", "./slackware64/ap")
     remote_pkg = tests.build_pkg("vim", "9.1", "./slackware64/ap")
-    local_list = _local([local_pkg])
-    remote_list = _remote([remote_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([remote_pkg])
     plist = tests.PersistentList({"vim": 6})  # state_outdated
     output = _capture_upgrades(request, "list-upgrades", local_list, remote_list, plist)
     assert "Available upgrades:" in output
@@ -231,8 +220,8 @@ def test_list_upgrades_pkg_only_in_pasture_shows_warning(request):
     local_pkg = tests.build_pkg("oldpkg", "1.0", "./slackware64/ap")
     # Remote version is only in pasture
     remote_pkg = tests.build_pkg("oldpkg", "1.1", "./pasture/ap")
-    local_list = _local([local_pkg])
-    remote_list = _remote([remote_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([remote_pkg])
     plist = tests.PersistentList({"oldpkg": 6})  # state_outdated
     output = _capture_upgrades(request, "list-upgrades", local_list, remote_list, plist)
     assert "only present in /pasture/" in output
@@ -243,8 +232,8 @@ def test_list_upgrades_watchout_printed_for_key_pkg(request):
     # 'glibc-solibs' is a prioritized (key) package; upgrading it triggers watchout
     local_pkg = tests.build_pkg("glibc-solibs", "2.36", "./slackware64/a")
     remote_pkg = tests.build_pkg("glibc-solibs", "2.37", "./slackware64/a")
-    local_list = _local([local_pkg])
-    remote_list = _remote([remote_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([remote_pkg])
     plist = tests.PersistentList({"glibc-solibs": 6})
     output = _capture_upgrades(request, "list-upgrades", local_list, remote_list, plist)
     assert "WATCH OUT" in output
@@ -255,8 +244,8 @@ def test_list_outdated_frozen_no_watchout(request):
     # list-outdated-frozen should NOT print the key package watchout
     local_pkg = tests.build_pkg("glibc-solibs", "2.36", "./slackware64/a")
     remote_pkg = tests.build_pkg("glibc-solibs", "2.37", "./slackware64/a")
-    local_list = _local([local_pkg])
-    remote_list = _remote([remote_pkg])
+    local_list = tests.package_map([local_pkg])
+    remote_list = tests.package_map([remote_pkg])
     plist = tests.PersistentList({"glibc-solibs": 4})  # frozen
     output = _capture_upgrades(
         request, "list-outdated-frozen", local_list, remote_list, plist

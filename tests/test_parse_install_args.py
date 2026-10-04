@@ -58,7 +58,7 @@ def test_parse_install_args_deduplicates_local_and_remote_info_candidates():
 
 def test_parse_install_args_warns_when_package_only_exists_in_pasture(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     local_list = {}  # type: Dict[str, List[SlackwarePackage]]
     remote_list = {
@@ -68,14 +68,14 @@ def test_parse_install_args_warns_when_package_only_exists_in_pasture(request):
     chosen = parse_install_args(["vim"], local_list, remote_list, False, False, False)
 
     assert chosen == []
-    assert fake_stdout.getvalue() == "WARNING: vim only present in /pasture/\n"
+    assert tests.mock_output(fake_stdout) == "WARNING: vim only present in /pasture/\n"
 
 
 def test_parse_install_args_errors_for_missing_name_that_looks_like_full_version(
     request,
 ):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     exit_mock.side_effect = ValueError("boom")
@@ -92,7 +92,7 @@ def test_parse_install_args_errors_for_missing_name_that_looks_like_full_version
     )
 
     assert (
-        fake_stdout.getvalue()
+        tests.mock_output(fake_stdout)
         == 'WARNING: file extension may be missing on "vim-1.0-x86_64-1"\n'
     )
     exit_mock.assert_called_with("ERROR: no package named vim-1.0-x86_64-1")
@@ -100,7 +100,7 @@ def test_parse_install_args_errors_for_missing_name_that_looks_like_full_version
 
 def test_parse_install_args_uses_choose_pkg_for_multiple_candidates(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     choose_pkg_mock = tests.start_patch(request, "slackroll.choose_pkg")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     local_pkg = tests.build_pkg("vim", "1.0", "./local/ap")
@@ -118,7 +118,7 @@ def test_parse_install_args_uses_choose_pkg_for_multiple_candidates(request):
     )
 
     assert chosen == [remote_pkg_2]
-    assert fake_stdout.getvalue() == "Local: vim-1.0-x86_64-1.txz\n"
+    assert tests.mock_output(fake_stdout) == "Local: vim-1.0-x86_64-1.txz\n"
     choose_pkg_mock.assert_called_with([remote_pkg_1, remote_pkg_2])
 
 

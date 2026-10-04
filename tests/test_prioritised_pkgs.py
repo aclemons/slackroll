@@ -1,59 +1,36 @@
+import pytest
 from slackroll import SlackwarePackage, pkg_name_cmp, sort_with_cmp, transient_cmp
 
+try:
+    from typing import TYPE_CHECKING
+except ImportError:
+    TYPE_CHECKING = False
 
-def test_transient_cmp_normal_pkg_same_state():
-    # type: () -> None
-    left = ("python2", 6)
-    right = ("python3", 6)
-
-    assert transient_cmp(left, right) == -1
-    assert transient_cmp(right, left) == 1
-    assert transient_cmp(left, left) == 0
+if TYPE_CHECKING:
+    from typing import Tuple
 
 
-def test_transient_cmp_normal_pkg_different_state():
-    # type: () -> None
-    left = ("python2", 0)
-    right = ("python3", 6)
-
-    assert transient_cmp(left, right) == -1
-    assert transient_cmp(right, left) == 1
-    assert transient_cmp(left, left) == 0
-
-
-def test_transient_cmp_prioritised_pkg_aaa_glib_solibs():
-    # type: () -> None
-    left = ("aaa_glibc-solibs", 0)
-    right = ("python3", 6)
-
-    assert transient_cmp(left, right) == -1
-    assert transient_cmp(right, left) == 1
-    assert transient_cmp(left, left) == 0
-
-
-def test_transient_cmp_prioritised_pkg_glibc_solibs():
-    # type: () -> None
-    left = ("glibc-solibs", 0)
-    right = ("python3", 6)
-
-    assert transient_cmp(left, right) == -1
-    assert transient_cmp(right, left) == 1
-    assert transient_cmp(left, left) == 0
-
-
-def test_transient_cmp_prioritised_pkg_sed():
-    # type: () -> None
-    left = ("sed", 0)
-    right = ("python3", 6)
-
-    assert transient_cmp(left, right) == -1
-    assert transient_cmp(right, left) == 1
-    assert transient_cmp(left, left) == 0
-
-
-def test_transient_cmp_prioritised_pkg_pkgtools():
-    # type: () -> None
-    left = ("pkgtools", 0)
+@pytest.mark.parametrize(  # type: ignore
+    "left",
+    [
+        ("python2", 6),
+        ("python2", 0),
+        ("aaa_glibc-solibs", 0),
+        ("glibc-solibs", 0),
+        ("sed", 0),
+        ("pkgtools", 0),
+    ],
+    ids=[
+        "normal-same-state",
+        "normal-different-state",
+        "aaa_glibc-solibs-priority",
+        "glibc-solibs-priority",
+        "sed-priority",
+        "pkgtools-priority",
+    ],
+)
+def test_transient_cmp_orders_package_before_python3(left):
+    # type: (Tuple[str, int]) -> None
     right = ("python3", 6)
 
     assert transient_cmp(left, right) == -1

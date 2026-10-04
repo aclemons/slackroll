@@ -15,87 +15,38 @@ except ImportError:
     TYPE_CHECKING = False
 
 if TYPE_CHECKING:
-    pass
+    from typing import List
 
 
-def test_verify_num_args_zero_or_one(request):
-    # type: (pytest.FixtureRequest) -> None
+@pytest.mark.parametrize(  # type: ignore
+    ("num_args", "args", "message"),
+    [
+        (-2, ["test", "after"], "ERROR: myop expects one argument or no arguments"),
+        (-1, [], "ERROR: myop expects more arguments"),
+        (0, ["arg"], "ERROR: myop expects no arguments"),
+        (1, [], "ERROR: myop expects 1 argument"),
+        (2, ["arg"], "ERROR: myop expects 2 arguments"),
+    ],
+)
+def test_verify_num_args_rejects_invalid_counts(request, num_args, args, message):
+    # type: (pytest.FixtureRequest, int, List[str], str) -> None
+    exit_mock = tests.start_patch(request, "sys.exit")
+    exit_mock.side_effect = ValueError
 
+    pytest.raises(ValueError, verify_num_args, num_args, "myop", args)
+
+    exit_mock.assert_called_once_with(message)
+
+
+def test_verify_num_args_accepts_valid_counts():
+    # type: () -> None
     verify_num_args(-2, "myop", [])
     verify_num_args(-2, "myop", ["test"])
-
-    exit_mock = tests.start_patch(request, "sys.exit")
-    exit_mock.side_effect = ValueError
-
-    try:
-        verify_num_args(-2, "myop", ["test", "after"])
-    except ValueError:
-        pass
-    else:
-        raise ValueError("failed")
-
-    exit_mock.assert_called_with("ERROR: myop expects one argument or no arguments")
-
-
-def test_verify_num_args_any_nonzero(request):
-    # type: (pytest.FixtureRequest) -> None
-
     verify_num_args(-1, "myop", ["test"])
     verify_num_args(-1, "myop", ["test", "after"])
-
-    exit_mock = tests.start_patch(request, "sys.exit")
-    exit_mock.side_effect = ValueError
-
-    try:
-        verify_num_args(-1, "myop", [])
-    except ValueError:
-        pass
-    else:
-        raise ValueError("failed")
-
-    exit_mock.assert_called_with("ERROR: myop expects more arguments")
-
-
-def test_verify_num_args_exact(request):
-    # type: (pytest.FixtureRequest) -> None
-
     verify_num_args(0, "myop", [])
     verify_num_args(1, "myop", ["after"])
     verify_num_args(2, "myop", ["after", "before"])
-
-    exit_zero_mock = tests.start_patch(request, "sys.exit")
-    exit_zero_mock.side_effect = ValueError
-
-    try:
-        verify_num_args(0, "myop", ["arg"])
-    except ValueError:
-        pass
-    else:
-        raise ValueError("failed")
-
-    exit_zero_mock.assert_called_with("ERROR: myop expects no arguments")
-
-    exit_zero_mock.reset_mock()
-
-    try:
-        verify_num_args(1, "myop", [])
-    except ValueError:
-        pass
-    else:
-        raise ValueError("failed")
-
-    exit_zero_mock.assert_called_with("ERROR: myop expects 1 argument")
-
-    exit_zero_mock.reset_mock()
-
-    try:
-        verify_num_args(2, "myop", ["arg"])
-    except ValueError:
-        pass
-    else:
-        raise ValueError("failed")
-
-    exit_zero_mock.assert_called_with("ERROR: myop expects 2 arguments")
 
 
 def test_levenshtein_distance_examples():
@@ -131,7 +82,7 @@ def test_verify_operation_and_args_delegates_to_verify_num_args(request):
 
 def test_verify_operation_and_args_suggests_closest_operation(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stderr = tests.FakeStream()
+    fake_stderr = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     tests.start_patch(request, "slackroll.sys.stderr", fake_stderr)
     exit_mock.side_effect = ValueError("boom")
@@ -144,7 +95,7 @@ def test_verify_operation_and_args_suggests_closest_operation(request):
         ["vim"],
     )
 
-    assert fake_stderr.getvalue() == (
+    assert tests.mock_output(fake_stderr) == (
         'ERROR: no operation called "set-miror"\n'  # spellchecker:disable-line
         'Use the "help" operation to get a list.\n'
         'Did you mean "set-mirror"?\n'
@@ -154,7 +105,7 @@ def test_verify_operation_and_args_suggests_closest_operation(request):
 
 def test_verify_operation_and_args_lists_sorted_tied_matches(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stderr = tests.FakeStream()
+    fake_stderr = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     tests.start_patch(request, "slackroll.sys.stderr", fake_stderr)
     exit_mock.side_effect = ValueError("boom")
@@ -167,7 +118,7 @@ def test_verify_operation_and_args_lists_sorted_tied_matches(request):
         [],
     )
 
-    assert fake_stderr.getvalue() == (
+    assert tests.mock_output(fake_stderr) == (
         'ERROR: no operation called "foo-bax"\n'
         'Use the "help" operation to get a list.\n'
         'Did you mean "foo-bar" or "foo-baz"?\n'

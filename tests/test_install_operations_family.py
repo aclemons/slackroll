@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 def test_install_operation_downloads_missing_packages_and_reviews_dotnew(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     cached_pkg = tests.build_pkg("vim", "9.1", "./patches/packages")
     missing_pkg = tests.build_pkg("git", "2.46.0", "./patches/packages")
     local_vim = tests.build_pkg("vim", "9.0", "/var/log/packages")
@@ -94,7 +94,7 @@ def test_install_operation_downloads_missing_packages_and_reviews_dotnew(request
         {},
     )
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Total size: 3.0k\nPackage vim-9.1-x86_64-1.txz found in cache\n"
     )
     assert downloads == ["git-2.46.0-x86_64-1.txz"]
@@ -107,7 +107,7 @@ def test_install_operation_downloads_missing_packages_and_reviews_dotnew(request
 
 def test_installpkg_uses_installpkg_and_installation_dotnew_handler(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     pkg = tests.build_pkg("vim", "9.1", "./patches/packages")
     installs = []  # type: List[str]
     dotnew_calls = []  # type: List[Sequence[str]]
@@ -160,7 +160,7 @@ def test_installpkg_uses_installpkg_and_installation_dotnew_handler(request):
 
     install_operations_family("installpkg", ["vim"], {}, {"vim": [pkg]}, {})
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Total size: 1.0k\nPackage vim-9.1-x86_64-1.txz found in cache\n"
     )
     assert installs == ["/cache/vim-9.1-x86_64-1.txz"]

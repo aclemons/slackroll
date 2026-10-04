@@ -15,28 +15,13 @@ if TYPE_CHECKING:
 PY2 = sys.version_info[0] == 2
 
 if PY2:
-    from mock import patch as _patch  # type: ignore
+    from mock import Mock as _Mock  # type: ignore
+    from mock import patch as _patch
 else:
+    from unittest.mock import Mock as _Mock
     from unittest.mock import patch as _patch
 
-
-class FakeStream(object):
-    def __init__(self):
-        # type: () -> None
-        self.messages = []  # type: List[str]
-
-    def write(self, text):
-        # type: (str) -> int
-        self.messages.append(text)
-        return len(text)
-
-    def flush(self):
-        # type: () -> None
-        return None
-
-    def getvalue(self):
-        # type: () -> str
-        return "".join(self.messages)
+Mock = _Mock
 
 
 class PersistentList(object):
@@ -84,6 +69,16 @@ def start_patch(request, target, *args, **kwargs):
     mocked = patcher.start()
     request.addfinalizer(patcher.stop)
     return mocked
+
+
+def mock_write_args(mock):
+    # type: (Any) -> List[Any]
+    return [call[0][0] for call in mock.call_args_list]
+
+
+def mock_output(stream):
+    # type: (Any) -> str
+    return "".join([str(text) for text in mock_write_args(stream.write)])
 
 
 def named_temporary_file(delete=True):
@@ -144,54 +139,9 @@ def build_pkg(name, version, path):
     return SlackwarePackage(name, version, "x86_64", "1", path, ".txz", None, None)
 
 
-class FakeBinaryBuffer(object):
-    def __init__(self):
-        # type: () -> None
-        self.output = []  # type: List[bytes]
-
-    def write(self, data):
-        # type: (bytes) -> None
-        self.output.append(data)
-
-    def flush(self):
-        # type: () -> None
-        return None
-
-    def close(self):
-        # type: () -> None
-        return None
-
-
-class FakeStdout(object):
-    def __init__(self):
-        # type: () -> None
-        self.buffer = FakeBinaryBuffer()
-        self.output = []  # type: List[str]
-
-    def isatty(self):
-        # type: () -> bool
-        return False
-
-    def write(self, data):
-        # type: (str) -> None
-        self.output.append(data)
-
-    def flush(self):
-        # type: () -> None
-        return None
-
-
-class FakeTtyStdout(FakeStdout):
-    def isatty(self):
-        # type: () -> bool
-        return True
-
-
-class FakePager(object):
-    def __init__(self):
-        # type: () -> None
-        self.stdin = FakeBinaryBuffer()
-
-    def wait(self):
-        # type: () -> None
-        return None
+def package_map(packages):
+    # type: (List[SlackwarePackage]) -> Dict[str, List[SlackwarePackage]]
+    result = {}  # type: Dict[str, List[SlackwarePackage]]
+    for package in packages:
+        result.setdefault(package.name, []).append(package)
+    return result

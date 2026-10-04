@@ -98,7 +98,7 @@ def test_handle_dotnew_files_installation_dispatches_by_batch_mode(request):
 
 def test_handle_dotnew_files_installation_batch_reports_all_existence_cases(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
 
     existing = {
@@ -122,7 +122,7 @@ def test_handle_dotnew_files_installation_batch_reports_all_existence_cases(requ
         ]
     )
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Keeping both /etc/both.new and /etc/both for manual review\n"
         "Renaming /etc/new-only.new to /etc/new-only because /etc/new-only does not exist\n"
         "Ignoring nonexistent /etc/old-only.new and keeping /etc/old-only\n"
@@ -132,7 +132,7 @@ def test_handle_dotnew_files_installation_batch_reports_all_existence_cases(requ
 
 def test_handle_dotnew_files_removal_returns_early_when_no_files_exist(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     batch_mock = tests.start_patch(
         request, "slackroll.handle_dotnew_files_removal_batch"
     )
@@ -145,14 +145,14 @@ def test_handle_dotnew_files_removal_returns_early_when_no_files_exist(request):
 
     handle_dotnew_files_removal(["/etc/a.new"])
 
-    assert fake_stdout.getvalue() == ""
+    assert tests.mock_output(fake_stdout) == ""
     assert batch_mock.called is False
     assert interactive_mock.called is False
 
 
 def test_handle_dotnew_files_removal_skips_files_still_owned_by_other_packages(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.os.path.islink", lambda _path: False)
     tests.start_patch(request, "slackroll.os.path.exists", lambda _path: True)
@@ -164,7 +164,7 @@ def test_handle_dotnew_files_removal_skips_files_still_owned_by_other_packages(r
 
     handle_dotnew_files_removal(["/etc/a.new"])
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "\nSome previous .new files have been found.\n"
         "Examining list in detail (this may take some seconds) ...\n"
         "All of them were present in other packages.\n"

@@ -69,7 +69,7 @@ def test_state_and_key_package_helpers_identify_matching_names():
 
 def test_maybe_print_key_package_messages_when_activity_pending(request):
     # type: (object) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = {
         "aaa_glibc-solibs": slackroll_state_new,
@@ -77,7 +77,7 @@ def test_maybe_print_key_package_messages_when_activity_pending(request):
 
     assert maybe_print_key_pkg_watchout(persistent_list) is True
     assert maybe_print_key_pkg_warning(persistent_list) is True
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "\nWATCH OUT: ACTIVITY IN KEY SYSTEM PACKAGES\n"
         'You can upgrade them using "upgrade-key-packages"\n\n'
         "WARNING: It seems there is activity in key system packages\n"
@@ -87,7 +87,7 @@ def test_maybe_print_key_package_messages_when_activity_pending(request):
 
 def test_maybe_print_new_and_outdated_warnings(request):
     # type: (object) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = {
         "newpkg": slackroll_state_new,
@@ -96,14 +96,14 @@ def test_maybe_print_new_and_outdated_warnings(request):
 
     assert maybe_print_new_warning(persistent_list) is True
     assert maybe_print_outdated_warning(persistent_list) is True
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "WARNING: There are new packages\nWARNING: There are outdated packages\n"
     )
 
 
 def test_warning_helpers_return_false_without_matching_packages(request):
     # type: (object) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = {
         "vim": slackroll_state_notinstalled,
@@ -113,7 +113,7 @@ def test_warning_helpers_return_false_without_matching_packages(request):
     assert maybe_print_key_pkg_warning(persistent_list) is False
     assert maybe_print_new_warning(persistent_list) is False
     assert maybe_print_outdated_warning(persistent_list) is False
-    assert fake_stdout.getvalue() == ""
+    assert tests.mock_output(fake_stdout) == ""
 
 
 def test_tr_pkg_detail_returns_remote_paths_for_new_packages_only():

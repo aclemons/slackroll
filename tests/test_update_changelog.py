@@ -1,32 +1,9 @@
 import os
-import shutil
-from tempfile import mkdtemp
 
 import pytest
 from slackroll import get_changelog, slackroll_changelog_filename, update_changelog
 
 import tests
-
-try:
-    from typing import TYPE_CHECKING
-except ImportError:
-    TYPE_CHECKING = False
-
-if TYPE_CHECKING:
-    from typing import List
-
-
-@pytest.fixture  # type: ignore
-def temp_dir(request):
-    # type: (pytest.FixtureRequest) -> str
-    dir = mkdtemp()
-
-    def teardown():
-        # type: () -> None
-        shutil.rmtree(dir)
-
-    request.addfinalizer(teardown)
-    return dir
 
 
 def assert_text_preserves_bytes(text, expected_bytes):
@@ -99,29 +76,15 @@ def test_update_changelog_incremental_preserves_non_utf8_bytes(temp_dir, request
         finally:
             handle.close()
 
-    class FakeResponse(object):
-        def __init__(self, lines):
-            # type: (List[bytes]) -> None
-            self._lines = list(lines)
-
-        def readline(self):
-            # type: () -> bytes
-            if len(self._lines) == 0:
-                return tests.bytes_literal("")
-            return self._lines.pop(0)
-
-        def close(self):
-            # type: () -> None
-            return None
+    response = tests.Mock()
+    response.readline.side_effect = new_lines + [tests.bytes_literal("")]
 
     tests.start_patch(request, "slackroll.get_temp_dir", lambda: temp_dir)
     tests.start_patch(request, "slackroll.slackroll_local_changelog", changelog_db)
     tests.start_patch(request, "slackroll.download_or_exit", fake_download_or_exit)
     assert update_changelog("https://example.invalid/", full=True) is True
 
-    tests.start_patch(
-        request, "slackroll.urlopen", lambda _url: FakeResponse(new_lines)
-    )
+    tests.start_patch(request, "slackroll.urlopen", lambda _url: response)
     assert update_changelog("https://example.invalid/") is True
 
     changelog = get_changelog()

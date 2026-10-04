@@ -1,25 +1,10 @@
 import os
 import shutil
-from tempfile import mkdtemp
 
 import pytest
 from slackroll import load_persistent_db, slackroll_state_installed
 
 import tests
-
-
-@pytest.fixture  # type: ignore
-def temp_dir(request):
-    # type: (pytest.FixtureRequest) -> str
-    dir = mkdtemp()
-
-    def teardown():
-        # type: () -> None
-        shutil.rmtree(dir)
-
-    request.addfinalizer(teardown)
-    return dir
-
 
 if tests.PY2:
 

@@ -1,5 +1,9 @@
 import os
+import shutil
 import sys
+import tempfile
+
+import pytest
 
 if sys.version_info[0] == 2:
     import imp
@@ -18,3 +22,11 @@ else:
     module = importlib.util.module_from_spec(spec)
     sys.modules["slackroll"] = module
     spec.loader.exec_module(module)
+
+
+@pytest.fixture  # type: ignore
+def temp_dir(request):
+    # type: (pytest.FixtureRequest) -> str
+    directory = tempfile.mkdtemp()
+    request.addfinalizer(lambda: shutil.rmtree(directory))
+    return directory

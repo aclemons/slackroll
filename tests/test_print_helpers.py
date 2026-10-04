@@ -16,7 +16,7 @@ import tests
 
 def test_print_in_states_prints_sorted_names_without_states(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = {
         "python3": slackroll_state_new,
@@ -26,14 +26,14 @@ def test_print_in_states_prints_sorted_names_without_states(request):
 
     print_in_states([slackroll_state_new], persistent_list, "New packages:", False)
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "New packages:\n    aaa_glibc-solibs\n    python3\nEnd of list\n"
     )
 
 
 def test_print_in_states_prints_state_labels(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     persistent_list = {
         "python3": slackroll_state_outdated,
@@ -47,7 +47,7 @@ def test_print_in_states_prints_state_labels(request):
         True,
     )
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Transient packages:\n"
         "    new            aaa_glibc-solibs\n"
         "    outdated       python3\n"
@@ -57,7 +57,7 @@ def test_print_in_states_prints_state_labels(request):
 
 def test_print_in_states_or_prints_empty_message_without_interceptor(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     interceptor_mock = tests.start_patch(
         request, "slackroll.SlackrollOutputInterceptor"
     )
@@ -65,7 +65,7 @@ def test_print_in_states_or_prints_empty_message_without_interceptor(request):
 
     print_in_states_or([slackroll_state_new], {}, "Header", "No matches", False)
 
-    assert fake_stdout.getvalue() == "No matches\n"
+    assert tests.mock_output(fake_stdout) == "No matches\n"
     assert interceptor_mock.called is False
 
 
@@ -86,19 +86,19 @@ def test_print_in_states_or_uses_interceptor_for_nonempty_output(request):
 
 def test_print_seq_sorts_prioritized_names(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
 
     print_seq(set(["python3", "sed", "aaa_glibc-solibs"]), "Sequence:")
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Sequence:\n    aaa_glibc-solibs\n    sed\n    python3\nEnd of list\n"
     )
 
 
 def test_print_seq_or_prints_empty_message_or_uses_interceptor(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     interceptor_mock = tests.start_patch(
         request, "slackroll.SlackrollOutputInterceptor"
     )
@@ -106,12 +106,12 @@ def test_print_seq_or_prints_empty_message_or_uses_interceptor(request):
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
 
     print_seq_or([], "Header", "Nothing here")
-    assert fake_stdout.getvalue() == "Nothing here\n"
+    assert tests.mock_output(fake_stdout) == "Nothing here\n"
     assert interceptor_mock.called is False
 
-    fake_stdout.messages = []
+    fake_stdout.write.reset_mock()
     print_seq_or(["vim"], "Header", "Nothing here")
-    assert fake_stdout.getvalue() == ""
+    assert tests.mock_output(fake_stdout) == ""
     assert interceptor_mock.called is True
     print_seq_mock.assert_called_with(["vim"], "Header")
     interceptor_mock.return_value.stop.assert_called_with()
@@ -119,7 +119,7 @@ def test_print_seq_or_prints_empty_message_or_uses_interceptor(request):
 
 def test_print_list_and_print_list_or_sort_entries(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     interceptor_mock = tests.start_patch(
         request, "slackroll.SlackrollOutputInterceptor"
     )
@@ -128,16 +128,16 @@ def test_print_list_and_print_list_or_sort_entries(request):
     entries = ["zeta", "alpha", "beta"]
     print_list(entries, "Entries:")
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Entries:\n    alpha\n    beta\n    zeta\nEnd of list\n"
     )
     assert entries == ["alpha", "beta", "zeta"]
 
-    fake_stdout.messages = []
+    fake_stdout.write.reset_mock()
     print_list_or([], "Entries:", "No entries")
-    assert fake_stdout.getvalue() == "No entries\n"
+    assert tests.mock_output(fake_stdout) == "No entries\n"
 
-    fake_stdout.messages = []
+    fake_stdout.write.reset_mock()
     print_list_or(["beta", "alpha"], "Entries:", "No entries")
     assert interceptor_mock.called is True
     interceptor_mock.return_value.stop.assert_called_with()

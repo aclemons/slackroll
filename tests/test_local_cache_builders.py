@@ -126,7 +126,7 @@ def test_get_local_pkgs_parses_matching_packages(request):
 
 def test_get_local_list_rebuilds_and_warns_for_duplicates(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     stored = {}  # type: Dict[str, List[object]]
     local_pkgs = [
         tests.build_pkg("vim", "1.0", "/var/log/packages"),
@@ -159,7 +159,7 @@ def test_get_local_list_rebuilds_and_warns_for_duplicates(request):
         "vim-1.0-x86_64-1.txz",
         "vim-2.0-x86_64-1.txz",
     ]
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "Rebuilding local package list...\n"
         "WARNING: packages with two or more local versions should be frozen or foreign\n"
     )

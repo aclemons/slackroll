@@ -1,7 +1,5 @@
 import bz2
 import os
-import shutil
-from tempfile import mkdtemp
 
 import pytest
 from slackroll import update_manifest_database, update_operation
@@ -15,19 +13,6 @@ except ImportError:
 
 if TYPE_CHECKING:
     from typing import Any, Dict, List, Optional, Tuple
-
-
-@pytest.fixture  # type: ignore
-def temp_dir(request):
-    # type: (pytest.FixtureRequest) -> str
-    dir = mkdtemp()
-
-    def teardown():
-        # type: () -> None
-        shutil.rmtree(dir)
-
-    request.addfinalizer(teardown)
-    return dir
 
 
 def test_update_operation_downloads_mirror_and_repositories(request, temp_dir):

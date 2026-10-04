@@ -23,7 +23,7 @@ def test_verify_local_names_accepts_known_names():
 
 def test_verify_local_names_warns_for_unexpected_full_version(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     exit_mock.side_effect = ValueError("boom")
@@ -35,7 +35,7 @@ def test_verify_local_names_warns_for_unexpected_full_version(request):
         {},
     )
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "WARNING: ghost-1.0-x86_64-1.txz looks like an unexpected full version\n"
     )
     exit_mock.assert_called_with(
@@ -45,12 +45,12 @@ def test_verify_local_names_warns_for_unexpected_full_version(request):
 
 def test_verify_local_names_errors_for_plain_unknown_name(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     exit_mock = tests.start_patch(request, "sys.exit")
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     exit_mock.side_effect = ValueError("boom")
 
     pytest.raises(ValueError, verify_local_names, ["ghost"], {})
 
-    assert fake_stdout.getvalue() == ""
+    assert tests.mock_output(fake_stdout) == ""
     exit_mock.assert_called_with("ERROR: ghost is not a local package name")

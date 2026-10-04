@@ -12,29 +12,23 @@ if TYPE_CHECKING:
     from typing import Dict, List, Optional, Sequence, Tuple
 
 
-class FakePwdEntry(object):
-    def __init__(self, shell):
-        # type: (str) -> None
-        self.pw_shell = shell
-
-
 def test_post_kernel_operation_batch_mode_warns_and_returns(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
 
     tests.start_patch(request, "slackroll.sys.stdout", fake_stdout)
     tests.start_patch(request, "slackroll.slackroll_batch_mode", True)
 
     post_kernel_operation()
 
-    assert fake_stdout.getvalue() == (
+    assert tests.mock_output(fake_stdout) == (
         "WARNING: you may need to modify your bootloader configuration and reboot\n"
     )
 
 
 def test_post_kernel_operation_runs_visual_lilo_and_shell_actions(request):
     # type: (pytest.FixtureRequest) -> None
-    fake_stdout = tests.FakeStream()
+    fake_stdout = tests.Mock()
     option_calls = []  # type: List[List[Tuple[str, str]]]
     visual_calls = []  # type: List[str]
     program_calls = []  # type: List[Tuple[List[str], Optional[Dict[str, str]]]]
@@ -70,7 +64,9 @@ def test_post_kernel_operation_runs_visual_lilo_and_shell_actions(request):
     tests.start_patch(request, "slackroll.run_program", fake_run_program)
     tests.start_patch(request, "slackroll.os.geteuid", lambda: 0)
     tests.start_patch(
-        request, "slackroll.pwd.getpwuid", lambda _uid: FakePwdEntry("/bin/sh")
+        request,
+        "slackroll.pwd.getpwuid",
+        lambda _uid: tests.Mock(pw_shell="/bin/sh"),
     )
     tests.start_patch(request, "slackroll.os.environ", {"TERM": "xterm"})
 
@@ -88,4 +84,4 @@ def test_post_kernel_operation_runs_visual_lilo_and_shell_actions(request):
         ("S", "Shell"),
         ("X", "Done"),
     ]
-    assert fake_stdout.getvalue() == "\n\n\n"
+    assert tests.mock_output(fake_stdout) == "\n\n\n"

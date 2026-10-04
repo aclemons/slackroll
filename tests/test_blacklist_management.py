@@ -100,28 +100,26 @@ def test_add_blacklist_exprs_preserves_multibyte_display_text(request):
     )
 
 
-def test_add_blacklist_exprs_invalid(blacklist, request):
-    # type: (List[str], pytest.FixtureRequest) -> None
+@pytest.mark.parametrize(  # type: ignore
+    ("expression", "error"),
+    [
+        ("test@[\\]", 'ERROR: "test@[\\]" is an invalid regular expression'),
+        ("[\\]", 'ERROR: "[\\]" is an invalid regular expression'),
+    ],
+    ids=["package-pattern", "url-pattern"],
+)
+def test_add_blacklist_exprs_rejects_invalid_regex(
+    blacklist, request, expression, error
+):
+    # type: (List[str], pytest.FixtureRequest, str, str) -> None
     get_blacklist_mock = tests.start_patch(request, "slackroll.get_blacklist")
     exit_mock = tests.start_patch(request, "sys.exit")
     get_blacklist_mock.return_value = blacklist
     exit_mock.side_effect = ValueError("boom")
 
-    pytest.raises(ValueError, add_blacklist_exprs, ["test@[\\]"])
+    pytest.raises(ValueError, add_blacklist_exprs, [expression])
 
-    exit_mock.assert_called_with('ERROR: "test@[\\]" is an invalid regular expression')
-
-
-def test_add_blacklist_exprs_invalid_url_regex(blacklist, request):
-    # type: (List[str], pytest.FixtureRequest) -> None
-    get_blacklist_mock = tests.start_patch(request, "slackroll.get_blacklist")
-    exit_mock = tests.start_patch(request, "sys.exit")
-    get_blacklist_mock.return_value = blacklist
-    exit_mock.side_effect = ValueError
-
-    pytest.raises(ValueError, add_blacklist_exprs, ["[\\]"])
-
-    exit_mock.assert_called_with('ERROR: "[\\]" is an invalid regular expression')
+    exit_mock.assert_called_with(error)
 
 
 def test_del_blacklist_exprs(blacklist, request):
@@ -150,28 +148,17 @@ def test_del_blacklist_exprs_multiple(blacklist, request):
     )
 
 
-def test_del_blacklist_exprs_invalid_index_negative(blacklist, request):
-    # type: (List[str], pytest.FixtureRequest) -> None
+@pytest.mark.parametrize("index", ["-1", "4"], ids=["negative", "out-of-range"])  # type: ignore
+def test_del_blacklist_exprs_rejects_invalid_index(blacklist, request, index):
+    # type: (List[str], pytest.FixtureRequest, str) -> None
     get_blacklist_mock = tests.start_patch(request, "slackroll.get_blacklist")
     exit_mock = tests.start_patch(request, "sys.exit")
     get_blacklist_mock.return_value = blacklist
     exit_mock.side_effect = ValueError
 
-    pytest.raises(ValueError, del_blacklist_exprs, ["-1"])
+    pytest.raises(ValueError, del_blacklist_exprs, [index])
 
-    exit_mock.assert_called_with("ERROR: invalid blacklist entry index: -1")
-
-
-def test_del_blacklist_exprs_invalid_index_exceeds_length(blacklist, request):
-    # type: (List[str], pytest.FixtureRequest) -> None
-    get_blacklist_mock = tests.start_patch(request, "slackroll.get_blacklist")
-    exit_mock = tests.start_patch(request, "sys.exit")
-    get_blacklist_mock.return_value = blacklist
-    exit_mock.side_effect = ValueError
-
-    pytest.raises(ValueError, del_blacklist_exprs, ["4"])
-
-    exit_mock.assert_called_with("ERROR: invalid blacklist entry index: 4")
+    exit_mock.assert_called_with("ERROR: invalid blacklist entry index: %s" % index)
 
 
 def test_get_blacklist_from_py2_pickle(blacklist, request):
