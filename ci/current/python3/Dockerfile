@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.27.1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 # check=error=true
 
-FROM aclemons/slackware:15.0@sha256:e9bd37749f52b413752c88808174f9817627fa9fa42c0c89f18af1bb770f27a1 AS base
+FROM aclemons/slackware:current@sha256:137bf08bcfd70a2706c5637407ba669f8ce5d016b8207de516b3a68510a52485 AS base
 
 # install python3
 RUN export TERSE=0 && \
@@ -16,5 +16,12 @@ RUN export TERSE=0 && \
     c_rehash && update-ca-certificates && \
     rm -rf /var/cache/packages/* && rm -rf /var/lib/slackpkg/*
 
+# renovate: datasource=pypi depName=pytest
+ENV PYTEST_VERSION=8.4.2
+# renovate: datasource=pypi depName=pytest_cov
+ENV PYTEST_COV_VERSION=7.1.0
+# renovate: datasource=pypi depName=toml
+ENV TOML_VERSION=0.10.2
+
 # setup running tests
-RUN pip3 --no-cache-dir install "pytest==8.4.2" "pytest_cov==7.1.0" "toml==0.10.2" && rm -rf /root/.cache
+RUN pip3 --no-cache-dir install "pytest==$PYTEST_VERSION" "pytest_cov==$PYTEST_COV_VERSION" "toml==$TOML_VERSION" && rm -rf /root/.cache
