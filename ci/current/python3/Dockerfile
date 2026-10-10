@@ -20,8 +20,5 @@ RUN export TERSE=0 && \
 ENV PYTEST_VERSION=9.1.1
 # renovate: datasource=pypi depName=pytest_cov
 ENV PYTEST_COV_VERSION=7.1.0
-# renovate: datasource=pypi depName=toml
-ENV TOML_VERSION=0.10.2
-
 # setup running tests
-RUN pip3 --no-cache-dir install "pytest==$PYTEST_VERSION" "pytest_cov==$PYTEST_COV_VERSION" "toml==$TOML_VERSION" && rm -rf /root/.cache
+RUN pip3 --no-cache-dir install "pytest==$PYTEST_VERSION" "pytest_cov==$PYTEST_COV_VERSION" && rm -rf /root/.cache
