@@ -2465,7 +2465,10 @@ def load_persistent_db(filename):
     return PersistentDBProxy(shelve.open(filename, 'c', pickle_protocol))
 
 
-if __name__ == "__main__":
+def main():
+    # type: () -> None
+    global slackroll_batch_mode
+
     ### Main program ###
     try:
         local_list = None
@@ -3225,3 +3228,6 @@ if __name__ == "__main__":
         sys.stderr.write('ERROR: no operation given\n')
         sys.stderr.write('Use "help" operation to get a list\n')
         sys.exit(slackroll_exit_failure)
+
+if __name__ == "__main__":
+    main()
