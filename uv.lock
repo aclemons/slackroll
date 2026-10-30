@@ -204,7 +204,7 @@ wheels = [
 [[package]]
 name = "slackroll"
 version = "55"
-source = { virtual = "." }
+source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
